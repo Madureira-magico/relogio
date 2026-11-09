@@ -55,12 +55,7 @@
   .send:active { background: #0F6E56; }
 
   .msg { text-align: center; font-size: 13px; color: #888780; min-height: 20px; padding-top: 10px; }
-  .ver { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 12px; color: #888780; padding: 6px; -webkit-touch-callout: none; }
-  .diag { position: fixed; inset: 0; background: #1b1c20; color: #D3D1C7; z-index: 10; display: none; flex-direction: column;
-    padding: calc(env(safe-area-inset-top) + 16px) 18px calc(env(safe-area-inset-bottom) + 16px); }
-  .diag.show { display: flex; }
-  .diag pre { flex: 1; overflow: auto; font-size: 13px; white-space: pre-wrap; word-break: break-all; margin: 10px 0; -webkit-user-select: text; user-select: text; }
-  .diag button { height: 44px; border-radius: 12px; border: 1.5px solid #5DCAA5; background: #33363c; color: #fff; font-size: 16px; }
+  .ver { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 12px; color: #888780; padding: 6px; pointer-events: none; }
   .turn { position: fixed; inset: 0; background: #26282d; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #D3D1C7; font-size: 18px; }
   .turn svg { width: 56px; height: 56px; color: #5DCAA5; }
   @media (orientation: landscape) and (max-height: 520px) { .turn { display: flex; } }
@@ -71,7 +66,7 @@
 
   <div class="status">
     <button id="btDot" class="dot ghost" aria-label="Conectar ao relógio">
-      <svg id="btIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l10 8-5 4V4l5 4-10 8"/></svg>
     </button>
     <div class="sep"></div>
     <div id="batDot" class="dot ghost" aria-label="Bateria do relógio">
@@ -104,12 +99,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver" id="ver">v1.3.2</div>
-<div class="diag" id="diag">
-  <div style="font-size:16px;color:#fff">Comandos do Bluefy</div>
-  <pre id="diagText"></pre>
-  <button id="diagClose">Fechar</button>
-</div>
+<div class="ver">v1.4</div>
 <div class="turn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
   Vire o celular de pé
@@ -121,8 +111,10 @@ const SVC    = '58570001-b5a3-f393-e0a9-e50e24dcca9e';
 const WRITE  = '58570002-b5a3-f393-e0a9-e50e24dcca9e';
 const NOTIFY = '58570003-b5a3-f393-e0a9-e50e24dcca9e';
 const DEV = 0x05, OP = 0x24;
+const CONFIRM_MS = 2000;   // tempo esperando o relógio confirmar
+const TRIES = 3;           // tentativas por envio
 
-// ===== SHA-1 (puro JS, funciona em qualquer navegador) =====
+// ===== SHA-1 (puro JS) =====
 function sha1(bytes) {
   const rotl = (x, n) => (x << n) | (x >>> (32 - n));
   const len = bytes.length, bitLen = len * 8;
@@ -153,7 +145,7 @@ function sha1(bytes) {
 }
 
 // ===== Monta o comando de hora (12 bytes) =====
-let SI = 0;
+let SI = 1 + Math.floor(Math.random() * 125);   // contador começa aleatório
 function buildPacket(hour, minute) {
   SI = SI >= 126 ? 1 : SI + 1;
   const pre = new Uint8Array([0x58, 0x57, DEV, OP, SI, hour, minute, 0x68, 0x78]);
@@ -166,12 +158,11 @@ function buildPacket(hour, minute) {
 // ===== Interface =====
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
-const ICON_BT  = '<path d="M7 8l10 8-5 4V4l5 4-10 8"/>';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 let digits = '';
 
 function msg(t) { $('msg').textContent = t; }
 
-// Digitação da esquerda para a direita: HH depois MM
 function renderVisor() {
   const show = (i) => i < digits.length ? digits[i] : '<span class="dim">0</span>';
   $('visor').innerHTML = show(0) + show(1) + '<span class="colon">:</span>' + show(2) + show(3);
@@ -184,9 +175,8 @@ function flash(cls) {
 
 let everConnected = false;
 function setBt(state) { // 'idle' | 'wait' | 'on' | 'lost'
-  const dot = $('btDot');
   const cls = { idle: 'ghost', wait: (everConnected ? 'bt-lost' : 'ghost') + ' bt-wait', on: 'bt-on', lost: 'bt-lost' }[state];
-  dot.className = 'dot ' + cls;
+  $('btDot').className = 'dot ' + cls;
   if (state === 'on') everConnected = true;
   if (state !== 'on') setBattery(null);
 }
@@ -206,7 +196,9 @@ function tickClock() { const d = new Date(); $('real').textContent = pad(d.getHo
 setInterval(tickClock, 1000); tickClock();
 
 // ===== Bluetooth =====
-let device = null, writeChar = null, manualDisconnect = false, retrying = false;
+let device = null, writeChar = null, retrying = false, busy = false;
+let watchTime = null;     // última hora informada pelo relógio {h, m}
+let waiter = null;        // quem está esperando a confirmação
 
 async function connect() {
   if (!navigator.bluetooth) { msg('Abra este app dentro do Bluefy'); return; }
@@ -230,154 +222,122 @@ async function openGatt() {
   const svc = await server.getPrimaryService(SVC);
   writeChar = await svc.getCharacteristic(WRITE);
   const notif = await svc.getCharacteristic(NOTIFY);
+  notif.removeEventListener('characteristicvaluechanged', onNotify);
   notif.addEventListener('characteristicvaluechanged', onNotify);
   await notif.startNotifications();
   setBt('on'); msg('Conectado');
   keepAwake();
+  warmUp();
 }
 
-// ===== Recursos especiais do Bluefy =====
-function bluefyNoDim() {
-  try { const bt = navigator.bluetooth; if (bt && typeof bt.setScreenDimEnabled === 'function') bt.setScreenDimEnabled(false); } catch (e) {}
-}
-function bluefyFullscreen() {
-  const bt = navigator.bluetooth; if (!bt) return;
-  ['setFullscreen', 'setFullScreen', 'setFullscreenEnabled', 'setFullScreenEnabled', 'enterFullscreen', 'enterFullScreen', 'requestFullscreen', 'requestFullScreen']
-    .forEach(n => { try { if (typeof bt[n] === 'function') bt[n](true); } catch (e) {} });
-}
-let triedStdFullscreen = false;
-function stdFullscreen() {
-  if (triedStdFullscreen) return; triedStdFullscreen = true;
-  const el = document.documentElement;
-  try { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const p = f.call(el); if (p && p.catch) p.catch(() => {}); } } catch (e) {}
-}
-function listBluefy() {
-  const out = [];
-  const bt = navigator.bluetooth;
-  if (!bt) out.push('navigator.bluetooth: NÃO EXISTE');
-  else {
-    const seen = new Set();
-    for (let o = bt; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) {
-      Object.getOwnPropertyNames(o).forEach(n => {
-        if (seen.has(n) || n === 'constructor') return; seen.add(n);
-        let t = '?'; try { t = typeof bt[n]; } catch (e) {}
-        out.push('bluetooth.' + n + '  (' + t + ')');
-      });
+// Conexão automática com o relógio já autorizado antes
+async function autoConnect() {
+  try {
+    if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
+    const list = await navigator.bluetooth.getDevices();
+    const d = list.find(x => (x.name || '').toUpperCase().startsWith('IARVEL')) || list[0];
+    if (!d) return;
+    device = d;
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    setBt('wait'); msg('Conectando sozinho...');
+    for (let i = 0; i < 3; i++) {
+      try { await openGatt(); return; } catch (e) { await sleep(1200); }
     }
-  }
-  const ours = ['bluefyFullscreen', 'listBluefy', 'bluefyNoDim', 'stdFullscreen', 'onNotify'];
-  try {
-    Object.getOwnPropertyNames(window).filter(n => /blue|fy|full|pnn|native|bridge/i.test(n) && !ours.includes(n)).forEach(n => out.push('window.' + n));
-  } catch (e) {}
-  // Olhar dentro do BLENative
-  try {
-    const bn = window.BLENative;
-    out.push('', '=== DENTRO DO BLENative (' + typeof bn + ') ===');
-    if (bn) {
-      const seen = new Set();
-      for (let o = bn; o && o !== Object.prototype && o !== Function.prototype; o = Object.getPrototypeOf(o)) {
-        Object.getOwnPropertyNames(o).forEach(n => {
-          if (seen.has(n) || n === 'constructor') return; seen.add(n);
-          let t = '?'; try { t = typeof bn[n]; } catch (e) {}
-          out.push('BLENative.' + n + '  (' + t + ')');
-        });
-      }
-      if (typeof bn === 'function') out.push('codigo: ' + String(bn).slice(0, 400));
-    }
-  } catch (e) { out.push('erro BLENative: ' + e.message); }
-  // Cardápio de intenções do Bluefy
-  out.push('', '=== CARDAPIO RequestIntentType ===');
-  try {
-    const t = (0, eval)('typeof RequestIntentType');
-    if (t !== 'undefined') out.push(JSON.stringify((0, eval)('RequestIntentType'), null, 1));
-    else out.push('(não acessível direto)');
-  } catch (e) { out.push('erro: ' + e.message); }
-  // Como o pedido é enviado por dentro
-  try {
-    const bn = window.BLENative;
-    if (bn) {
-      out.push('', '=== BLENative.request por dentro ===', String(bn.request).slice(0, 900));
-      out.push('', '=== BLENative.enable por dentro ===', String(bn.enable).slice(0, 400));
-      out.push('', 'callbacks: ' + Object.keys(bn.callbacks || {}).join(', '));
-    }
-  } catch (e) { out.push('erro request: ' + e.message); }
-  // Outros comandos, para ver outros nomes de intenção
-  try {
-    const bt = navigator.bluetooth;
-    ['requestDevice', 'getAvailability', 'getDevices'].forEach(n => {
-      const s = String(bt[n]); const m = s.match(/RequestIntentType\.\w+/g);
-      out.push(n + ' usa: ' + (m ? [...new Set(m)].join(', ') : '(nada)'));
-    });
-  } catch (e) {}
-  try { if (window.webkit && window.webkit.messageHandlers) out.push('webkit.messageHandlers: existe'); } catch (e) {}
-  out.push('', 'fullscreen padrão: ' + (document.documentElement.requestFullscreen ? 'sim' : document.documentElement.webkitRequestFullscreen ? 'webkit' : 'não'));
-  out.push('Navegador: ' + navigator.userAgent);
-  return out.join('\n');
+    setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
+  } catch (e) { setBt('idle'); }
 }
-bluefyNoDim();
 
 function onNotify(ev) {
   const b = new Uint8Array(ev.target.value.buffer);
   if (b.length < 12 || b[0] !== 0x58 || b[1] !== 0x57 || b[4] !== 0x28) return;
+  watchTime = { h: b[9], m: b[10] };
   $('watch').textContent = pad(b[9]) + ':' + pad(b[10]);
   setBattery(b[3]);
+  if (waiter && waiter.h === b[9] && waiter.m === b[10]) { const w = waiter; waiter = null; w.resolve(true); }
+}
+
+// Espera o relógio informar a hora pedida
+function waitWatch(h, m, ms) {
+  if (watchTime && watchTime.h === h && watchTime.m === m) return Promise.resolve(true);
+  return new Promise(resolve => {
+    waiter = { h, m, resolve };
+    setTimeout(() => { if (waiter && waiter.resolve === resolve) { waiter = null; resolve(false); } }, ms);
+  });
 }
 
 async function onDisconnected() {
-  writeChar = null; $('watch').textContent = '--:--';
+  writeChar = null; watchTime = null; $('watch').textContent = '--:--';
+  if (waiter) { const w = waiter; waiter = null; w.resolve(false); }
   setBt('lost');
-  if (manualDisconnect || retrying) return;
+  if (retrying) return;
   retrying = true; msg('Conexão caiu. Reconectando...');
   for (let i = 0; i < 5 && device && !device.gatt.connected; i++) {
     try { setBt('wait'); await openGatt(); break; }
-    catch (e) { setBt('lost'); await new Promise(r => setTimeout(r, 1500)); }
+    catch (e) { setBt('lost'); await sleep(1500); }
   }
   retrying = false;
-  if (!device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
+  if (!device || !device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
 }
 
-async function sendTime(h, m) {
-  if (!writeChar) { flash('bad'); msg('Conecte o relógio primeiro'); return; }
-  const pkt = buildPacket(h, m);
-  try {
-    if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(pkt);
-    else await writeChar.writeValue(pkt);
-    flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m));
-    return true;
-  } catch (e) { flash('bad'); msg('Falhou ao enviar. Tente de novo'); }
+async function writePacket(pkt) {
+  if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(pkt);
+  else await writeChar.writeValue(pkt);
+}
+
+// Envia e confirma pela hora que o relógio devolve; reenvia sozinho se precisar
+async function sendConfirmed(h, m) {
+  for (let i = 1; i <= TRIES; i++) {
+    if (!writeChar) return false;
+    try { await writePacket(buildPacket(h, m)); } catch (e) { await sleep(300); continue; }
+    if (await waitWatch(h, m, CONFIRM_MS)) return true;
+    if (i < TRIES) msg('Reenviando ' + pad(h) + ':' + pad(m) + '...');
+  }
   return false;
 }
 
-// Mantém a tela acesa (quando o navegador permitir)
+async function sendTime(h, m) {
+  if (!writeChar) { flash('bad'); msg('Conecte o relógio primeiro'); return false; }
+  if (busy) { msg('Aguarde...'); return false; }
+  busy = true; msg('Enviando ' + pad(h) + ':' + pad(m) + '...');
+  const ok = await sendConfirmed(h, m);
+  busy = false;
+  if (ok) { flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m)); }
+  else { flash('bad'); msg('O relógio não confirmou. Tente de novo'); }
+  return ok;
+}
+
+// Ao conectar: 12:00 e depois a hora atual (sinal de que está tudo certo)
+async function warmUp() {
+  if (busy) return;
+  busy = true;
+  await sleep(500);
+  msg('Testando: 12:00');
+  const a = await sendConfirmed(12, 0);
+  await sleep(1200);
+  const d = new Date();
+  msg('Voltando para ' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+  const b = await sendConfirmed(d.getHours(), d.getMinutes());
+  busy = false;
+  msg(a && b ? 'Relógio pronto' : 'Conectado, mas o relógio não confirmou o teste');
+}
+
+// Mantém a tela acesa
 let wakeLock = null;
 async function keepAwake() {
+  try { const bt = navigator.bluetooth; if (bt && typeof bt.setScreenDimEnabled === 'function') bt.setScreenDimEnabled(false); } catch (e) {}
   try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && writeChar) keepAwake(); });
 
 // ===== Botões =====
 $('btDot').addEventListener('click', () => {
-  bluefyFullscreen(); bluefyNoDim();
   if (device && device.gatt.connected) return;
-  manualDisconnect = false; connect();
+  connect();
 });
 
-// Segurar o dedo na versão mostra a lista de comandos do Bluefy
-let pressTimer = null;
-const startPress = (e) => { e.preventDefault(); pressTimer = setTimeout(() => { $('diagText').textContent = listBluefy(); $('diag').classList.add('show'); }, 700); };
-const endPress = () => clearTimeout(pressTimer);
-$('ver').addEventListener('touchstart', startPress, { passive: false });
-$('ver').addEventListener('touchend', endPress);
-$('ver').addEventListener('touchcancel', endPress);
-$('ver').addEventListener('mousedown', startPress);
-$('ver').addEventListener('mouseup', endPress);
-$('diagClose').addEventListener('click', () => $('diag').classList.remove('show'));
-
 document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
-  stdFullscreen();
   if (digits.length >= 4) return;
   digits += k.dataset.n;
-  // Confere cada metade assim que fica completa
   if (digits.length === 2 && +digits > 23) {
     digits = ''; flash('bad'); msg('Hora inválida');
   } else if (digits.length === 4 && +digits.slice(2) > 59) {
@@ -399,7 +359,8 @@ $('nowBtn').addEventListener('click', () => { const d = new Date(); sendTime(d.g
 
 renderVisor();
 setBt('idle');
-$('btIcon').innerHTML = ICON_BT;
+keepAwake();
+autoConnect();
 </script>
 </body>
 </html>
