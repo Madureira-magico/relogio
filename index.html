@@ -99,7 +99,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver">v1.4.1</div>
+<div class="ver">v1.4.2</div>
 <div class="turn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
   Vire o celular de pé
@@ -237,6 +237,29 @@ async function openGatt() {
 let autoToken = 0;
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), ms))]);
 
+// Escuta os sinais do relógio até ele aparecer (ou até acabar o tempo)
+function listenFor(d, ms) {
+  if (!d || typeof d.watchAdvertisements !== 'function') return Promise.resolve(false);
+  return new Promise(resolve => {
+    let done = false;
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const finish = (ok) => {
+      if (done) return; done = true;
+      try { d.removeEventListener('advertisementreceived', onAdv); } catch (e) {}
+      try { if (ctrl) ctrl.abort(); } catch (e) {}
+      try { if (typeof d.unwatchAdvertisements === 'function') d.unwatchAdvertisements(); } catch (e) {}
+      resolve(ok);
+    };
+    const onAdv = () => finish(true);
+    try { d.addEventListener('advertisementreceived', onAdv); } catch (e) {}
+    try {
+      const p = ctrl ? d.watchAdvertisements({ signal: ctrl.signal }) : d.watchAdvertisements();
+      if (p && p.catch) p.catch(() => finish(false));
+    } catch (e) { finish(false); return; }
+    setTimeout(() => finish(false), ms);
+  });
+}
+
 async function autoConnect() {
   const my = ++autoToken;
   const cancelled = () => my !== autoToken;
@@ -248,10 +271,14 @@ async function autoConnect() {
     if (!d) return;
     device = d;
     device.addEventListener('gattserverdisconnected', onDisconnected);
-    setBt('wait'); msg('Conectando sozinho...');
+    setBt('wait'); msg('Procurando o relógio...');
+    // Primeiro "escuta" o relógio no ar, depois conecta
+    await listenFor(d, 8000);
+    if (cancelled()) return;
+    msg('Conectando sozinho...');
     for (let i = 0; i < 2; i++) {
       if (cancelled()) return;
-      try { await withTimeout(openGatt(), 5000); return; } catch (e) { await sleep(800); }
+      try { await withTimeout(openGatt(), 8000); return; } catch (e) { await sleep(800); }
     }
     if (cancelled()) return;
     device = null;   // relógio guardado não respondeu: esquece e espera o toque
