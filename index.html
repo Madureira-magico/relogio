@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#26282d">
+<title>Relógio</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; height: 100%; background: #26282d; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; overflow: hidden; }
+  .app { max-width: 420px; margin: 0 auto; height: 100%; display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 16px) 22px calc(env(safe-area-inset-bottom) + 22px); }
+
+  .status { display: flex; justify-content: center; align-items: center; gap: 14px; padding-bottom: 14px; }
+  .dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; padding: 0; }
+  .dot svg { width: 22px; height: 22px; }
+  .bt-on  { background: #E1F5EE; color: #0F6E56; }
+  .bt-off { background: #E24B4A; color: #fff; }
+  .bt-wait { background: #EF9F27; color: #fff; }
+  .sep { width: 2px; height: 28px; background: #888780; border-radius: 1px; }
+  .bat-ok  { background: #1D9E75; }
+  .bat-low { background: #E24B4A; }
+  .bat-none { background: #5F5E5A; }
+  .bat { width: 23px; height: 13px; border: 1.8px solid #fff; border-radius: 3px; display: flex; gap: 1.5px; padding: 1.5px; position: relative; }
+  .bat::after { content: ""; position: absolute; right: -5px; top: 3px; width: 2.5px; height: 4.5px; background: #fff; border-radius: 0 1px 1px 0; }
+  .bar { flex: 1; border-radius: 1px; background: transparent; }
+  .bar.on { background: #fff; }
+
+  .info { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #888780; padding: 0 4px 10px; }
+  .info b { font-weight: 500; }
+  #real { color: #D3D1C7; }
+  #watch { color: #5DCAA5; }
+  .now { border: 1px solid #5DCAA5; border-radius: 8px; padding: 4px 9px; color: #D3D1C7; background: transparent; font-size: 14px; display: flex; align-items: center; gap: 5px; }
+  .now svg { width: 15px; height: 15px; }
+
+  .visor { border: 1.5px solid #5DCAA5; border-radius: 20px; height: 96px; display: flex; align-items: center; justify-content: center;
+    font-size: 46px; font-weight: 500; margin-bottom: 18px; letter-spacing: 2px; transition: border-color .2s, background .2s; font-variant-numeric: tabular-nums; }
+  .visor .dim { color: #5F5E5A; }
+  .colon { display: inline-flex; flex-direction: column; gap: 11px; margin: 0 12px; }
+  .colon i { width: 11px; height: 11px; border-radius: 50%; background: #fff; display: block; }
+  .visor.ok  { border-color: #97C459; background: #1d3a2c; }
+  .visor.bad { border-color: #E24B4A; background: #3a1f1f; }
+
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; flex: 1; max-height: 380px; }
+  .k { border: 1.5px solid #5DCAA5; border-radius: 18px; background: #33363c; color: #fff; font-size: 30px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center; padding: 0; min-height: 60px; }
+  .k:active { background: #444850; }
+  .k svg { width: 30px; height: 30px; }
+  .send { background: #1D9E75; }
+  .send:active { background: #0F6E56; }
+
+  .msg { text-align: center; font-size: 13px; color: #888780; min-height: 20px; padding-top: 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="status">
+    <button id="btDot" class="dot bt-off" aria-label="Conectar ao relógio">
+      <svg id="btIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </button>
+    <div class="sep"></div>
+    <div id="batDot" class="dot bat-none" aria-label="Bateria do relógio">
+      <div class="bat"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+    </div>
+  </div>
+
+  <div class="info">
+    <span>Agora <b id="real">--:--</b></span>
+    <span>Relógio <b id="watch">--:--</b></span>
+    <button id="nowBtn" class="now" aria-label="Mandar hora atual">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>agora
+    </button>
+  </div>
+
+  <div id="visor" class="visor"></div>
+
+  <div class="keys">
+    <button class="k" data-n="1">1</button><button class="k" data-n="2">2</button><button class="k" data-n="3">3</button>
+    <button class="k" data-n="4">4</button><button class="k" data-n="5">5</button><button class="k" data-n="6">6</button>
+    <button class="k" data-n="7">7</button><button class="k" data-n="8">8</button><button class="k" data-n="9">9</button>
+    <button class="k" id="clr" aria-label="Apagar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button class="k" data-n="0">0</button>
+    <button class="k send" id="sendBtn" aria-label="Enviar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14L21 3"/><path d="M21 3l-6.5 18a.55 .55 0 0 1-1 0L10 14l-7-3.5a.55 .55 0 0 1 0-1L21 3"/></svg>
+    </button>
+  </div>
+
+  <div id="msg" class="msg">Toque na bolinha vermelha para conectar</div>
+</div>
+
+<script>
+// ===== Constantes do relógio Iarvel =====
+const SVC    = '58570001-b5a3-f393-e0a9-e50e24dcca9e';
+const WRITE  = '58570002-b5a3-f393-e0a9-e50e24dcca9e';
+const NOTIFY = '58570003-b5a3-f393-e0a9-e50e24dcca9e';
+const DEV = 0x05, OP = 0x24;
+
+// ===== SHA-1 (puro JS, funciona em qualquer navegador) =====
+function sha1(bytes) {
+  const rotl = (x, n) => (x << n) | (x >>> (32 - n));
+  const len = bytes.length, bitLen = len * 8;
+  const total = ((len + 9 + 63) >> 6) << 6;
+  const m = new Uint8Array(total); m.set(bytes); m[len] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(total - 4, bitLen >>> 0); dv.setUint32(total - 8, Math.floor(bitLen / 2 ** 32));
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+  const w = new Uint32Array(80);
+  for (let o = 0; o < total; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+    for (let i = 16; i < 80; i++) w[i] = rotl(w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16], 1);
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let i = 0; i < 80; i++) {
+      let f, k;
+      if (i < 20) { f = (b & c) | (~b & d); k = 0x5A827999; }
+      else if (i < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+      else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+      else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+      const t = (rotl(a, 5) + f + e + k + w[i]) >>> 0;
+      e = d; d = c; c = rotl(b, 30) >>> 0; b = a; a = t;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+  }
+  const out = new Uint8Array(20), odv = new DataView(out.buffer);
+  [h0, h1, h2, h3, h4].forEach((h, i) => odv.setUint32(i * 4, h));
+  return out;
+}
+
+// ===== Monta o comando de hora (12 bytes) =====
+let SI = 0;
+function buildPacket(hour, minute) {
+  SI = SI >= 126 ? 1 : SI + 1;
+  const pre = new Uint8Array([0x58, 0x57, DEV, OP, SI, hour, minute, 0x68, 0x78]);
+  const tail = sha1(pre).slice(0, 4);
+  const pkt = new Uint8Array(12);
+  pkt.set([0x58, 0x57, DEV, OP, SI, hour, minute, 0x00]); pkt.set(tail, 8);
+  return pkt;
+}
+
+// ===== Interface =====
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const ICON_BT  = '<path d="M7 8l10 8-5 4V4l5 4-10 8"/>';
+const ICON_OFF = '<path d="M3 3l18 18"/><path d="M16.17 16.17L12 20V12"/><path d="M7 8l5 4"/><path d="M12 4l5 4-1.83 1.47"/>';
+let digits = '';
+
+function msg(t) { $('msg').textContent = t; }
+
+function renderVisor() {
+  const d = digits.padStart(4, ' ');
+  const show = (ch) => ch === ' ' ? '<span class="dim">0</span>' : ch;
+  $('visor').innerHTML = show(d[0]) + show(d[1]) + '<span class="colon"><i></i><i></i></span>' + show(d[2]) + show(d[3]);
+}
+
+function flash(cls) {
+  const v = $('visor'); v.classList.remove('ok', 'bad'); void v.offsetWidth; v.classList.add(cls);
+  setTimeout(() => v.classList.remove(cls), 900);
+}
+
+function setBt(state) { // 'on' | 'off' | 'wait'
+  const dot = $('btDot');
+  dot.className = 'dot ' + (state === 'on' ? 'bt-on' : state === 'wait' ? 'bt-wait' : 'bt-off');
+  $('btIcon').innerHTML = state === 'off' ? ICON_OFF : ICON_BT;
+  if (state !== 'on') setBattery(null);
+}
+
+function setBattery(level) { // 20,40,60,80,100 / 101,102 = carregando / null = desconhecido
+  const dot = $('batDot'), bars = dot.querySelectorAll('.bar');
+  let n = 0, cls = 'bat-none';
+  if (level != null) {
+    if (level > 100) { n = 4; cls = 'bat-ok'; }
+    else { n = level <= 20 ? 1 : level <= 40 ? 2 : level <= 60 ? 3 : 4; cls = level <= 20 ? 'bat-low' : 'bat-ok'; }
+  }
+  dot.className = 'dot ' + cls;
+  bars.forEach((b, i) => b.classList.toggle('on', i < n));
+}
+
+function tickClock() { const d = new Date(); $('real').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+setInterval(tickClock, 1000); tickClock();
+
+// ===== Bluetooth =====
+let device = null, writeChar = null, manualDisconnect = false, retrying = false;
+
+async function connect() {
+  if (!navigator.bluetooth) { msg('Abra este app dentro do Bluefy'); return; }
+  try {
+    setBt('wait'); msg('Procurando o relógio...');
+    if (!device) {
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [SVC] }, { namePrefix: 'IARVEL' }],
+        optionalServices: [SVC]
+      });
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+    }
+    await openGatt();
+  } catch (e) {
+    setBt('off'); msg('Não conectou. Toque na bolinha para tentar de novo');
+  }
+}
+
+async function openGatt() {
+  const server = await device.gatt.connect();
+  const svc = await server.getPrimaryService(SVC);
+  writeChar = await svc.getCharacteristic(WRITE);
+  const notif = await svc.getCharacteristic(NOTIFY);
+  notif.addEventListener('characteristicvaluechanged', onNotify);
+  await notif.startNotifications();
+  setBt('on'); msg('Conectado');
+  keepAwake();
+}
+
+function onNotify(ev) {
+  const b = new Uint8Array(ev.target.value.buffer);
+  if (b.length < 12 || b[0] !== 0x58 || b[1] !== 0x57 || b[4] !== 0x28) return;
+  $('watch').textContent = pad(b[9]) + ':' + pad(b[10]);
+  setBattery(b[3]);
+}
+
+async function onDisconnected() {
+  writeChar = null; $('watch').textContent = '--:--';
+  setBt('off');
+  if (manualDisconnect || retrying) return;
+  retrying = true; msg('Conexão caiu. Reconectando...');
+  for (let i = 0; i < 5 && device && !device.gatt.connected; i++) {
+    try { setBt('wait'); await openGatt(); break; }
+    catch (e) { setBt('off'); await new Promise(r => setTimeout(r, 1500)); }
+  }
+  retrying = false;
+  if (!device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
+}
+
+async function sendTime(h, m) {
+  if (!writeChar) { flash('bad'); msg('Conecte o relógio primeiro'); return; }
+  const pkt = buildPacket(h, m);
+  try {
+    if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(pkt);
+    else await writeChar.writeValue(pkt);
+    flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m));
+  } catch (e) { flash('bad'); msg('Falhou ao enviar. Tente de novo'); }
+}
+
+// Mantém a tela acesa (quando o navegador permitir)
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && writeChar) keepAwake(); });
+
+// ===== Botões =====
+$('btDot').addEventListener('click', () => {
+  if (device && device.gatt.connected) return;
+  manualDisconnect = false; connect();
+});
+
+document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
+  digits = (digits + k.dataset.n).slice(-4); renderVisor();
+}));
+
+$('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
+
+$('sendBtn').addEventListener('click', () => {
+  if (!digits) { flash('bad'); return; }
+  const d = digits.padStart(4, '0');
+  const h = +d.slice(0, 2), m = +d.slice(2);
+  if (h > 23 || m > 59) { flash('bad'); msg('Hora inválida'); return; }
+  sendTime(h, m);
+});
+
+$('nowBtn').addEventListener('click', () => { const d = new Date(); sendTime(d.getHours(), d.getMinutes()); });
+
+renderVisor();
+setBt('off');
+</script>
+</body>
+</html>
