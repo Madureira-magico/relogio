@@ -104,7 +104,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver" id="ver">v1.3</div>
+<div class="ver" id="ver">v1.3.1</div>
 <div class="diag" id="diag">
   <div style="font-size:16px;color:#fff">Comandos do Bluefy</div>
   <pre id="diagText"></pre>
@@ -265,8 +265,30 @@ function listBluefy() {
       });
     }
   }
+  const ours = ['bluefyFullscreen', 'listBluefy', 'bluefyNoDim', 'stdFullscreen', 'onNotify'];
   try {
-    Object.getOwnPropertyNames(window).filter(n => /blue|fy|full|pnn|native|bridge/i.test(n)).forEach(n => out.push('window.' + n));
+    Object.getOwnPropertyNames(window).filter(n => /blue|fy|full|pnn|native|bridge/i.test(n) && !ours.includes(n)).forEach(n => out.push('window.' + n));
+  } catch (e) {}
+  // Olhar dentro do BLENative
+  try {
+    const bn = window.BLENative;
+    out.push('', '=== DENTRO DO BLENative (' + typeof bn + ') ===');
+    if (bn) {
+      const seen = new Set();
+      for (let o = bn; o && o !== Object.prototype && o !== Function.prototype; o = Object.getPrototypeOf(o)) {
+        Object.getOwnPropertyNames(o).forEach(n => {
+          if (seen.has(n) || n === 'constructor') return; seen.add(n);
+          let t = '?'; try { t = typeof bn[n]; } catch (e) {}
+          out.push('BLENative.' + n + '  (' + t + ')');
+        });
+      }
+      if (typeof bn === 'function') out.push('codigo: ' + String(bn).slice(0, 400));
+    }
+  } catch (e) { out.push('erro BLENative: ' + e.message); }
+  // Como o comando da tela acesa fala com o Bluefy por dentro
+  try {
+    const f = navigator.bluetooth && navigator.bluetooth.setScreenDimEnabled;
+    if (f) out.push('', '=== setScreenDimEnabled por dentro ===', String(f).slice(0, 500));
   } catch (e) {}
   try { if (window.webkit && window.webkit.messageHandlers) out.push('webkit.messageHandlers: existe'); } catch (e) {}
   out.push('', 'fullscreen padrão: ' + (document.documentElement.requestFullscreen ? 'sim' : document.documentElement.webkitRequestFullscreen ? 'webkit' : 'não'));
