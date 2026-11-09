@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Relógio">
+<meta name="theme-color" content="#26282d">
+<title>Relógio</title>
+<link rel="apple-touch-icon" href="icone-assistente.png">
+<link rel="icon" href="icone-assistente.png">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; height: 100%; background: #26282d; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; overflow: hidden; }
+  button { font-family: inherit; }
+  .app { max-width: 420px; margin: 0 auto; height: 100%; display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 14px) 20px calc(env(safe-area-inset-bottom) + 12px); }
+
+  .top { display: flex; justify-content: center; padding-bottom: 14px; flex-shrink: 0; }
+  .pill { display: flex; align-items: center; gap: 8px; border-radius: 20px; padding: 8px 14px; font-size: 15px; font-weight: 500;
+    border: 1.5px solid #5F5E5A; color: #888780; }
+  .pill svg { width: 20px; height: 20px; }
+  .pill.green  { border-color: #1D9E75; color: #5DCAA5; }
+  .pill.yellow { border-color: #BA7517; color: #EF9F27; }
+  .pill.red    { border-color: #A32D2D; color: #E24B4A; }
+  .pill.wait svg { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+
+  .visor { border: 1.5px solid #5DCAA5; border-radius: 20px; height: clamp(72px, 13vh, 104px); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    font-size: 50px; font-weight: 500; margin-bottom: 14px; letter-spacing: 2px; transition: border-color .2s, background .2s; font-variant-numeric: tabular-nums; color: #5DCAA5; }
+  .visor .dim { color: #444441; }
+  .colon { color: #fff; margin: 0 4px; position: relative; top: -4px; }
+  .visor.ok  { border-color: #97C459; background: #1d3a2c; }
+  .visor.bad { border-color: #E24B4A; background: #3a1f1f; }
+
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); gap: 11px; flex: 1 1 auto; min-height: 220px; max-height: 440px; }
+  .k { border: 1.5px solid #5DCAA5; border-radius: 18px; background: #33363c; color: #fff; font-size: 30px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center; padding: 0; min-height: 44px; }
+  .k:active { background: #444850; }
+  .k svg { width: 30px; height: 30px; }
+  .send { background: #1D9E75; }
+  .send:active { background: #0F6E56; }
+
+  .msg { text-align: center; font-size: 16px; color: #888780; min-height: 24px; padding-top: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .msg.good { color: #5DCAA5; }
+  .msg.bad  { color: #E24B4A; }
+  .ver { text-align: right; font-size: 12px; color: #888780; padding-top: 4px; flex-shrink: 0; }
+
+  .nolink { position: fixed; inset: 0; background: #26282d; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 30px; text-align: center; color: #D3D1C7; font-size: 17px; }
+  .nolink.show { display: flex; }
+  .turn { position: fixed; inset: 0; background: #26282d; z-index: 50; display: none; align-items: center; justify-content: center; color: #D3D1C7; font-size: 18px; }
+  @media (orientation: landscape) and (max-height: 520px) { .turn { display: flex; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="pill wait" id="pill">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>
+      <span id="pillTxt">Procurando...</span>
+    </div>
+  </div>
+
+  <div id="visor" class="visor"></div>
+
+  <div class="keys">
+    <button class="k" data-n="1">1</button><button class="k" data-n="2">2</button><button class="k" data-n="3">3</button>
+    <button class="k" data-n="4">4</button><button class="k" data-n="5">5</button><button class="k" data-n="6">6</button>
+    <button class="k" data-n="7">7</button><button class="k" data-n="8">8</button><button class="k" data-n="9">9</button>
+    <button class="k" id="clr" aria-label="Apagar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button class="k" data-n="0">0</button>
+    <button class="k send" id="sendBtn" aria-label="Enviar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14L21 3"/><path d="M21 3l-6.5 18a.55 .55 0 0 1-1 0L10 14l-7-3.5a.55 .55 0 0 1 0-1L21 3"/></svg>
+    </button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+  <div class="ver">v2.0</div>
+</div>
+
+<div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
+<div class="turn">Vire o celular de pé</div>
+
+<script>
+const NTFY = 'https://ntfy.sh/';
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem('assist_' + k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem('assist_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+// canal secreto: vem no link (#...) e fica guardado
+let canal = (location.hash || '').replace('#', '').trim();
+if (/^[a-z0-9]{10,}$/i.test(canal)) store.set('canal', canal); else canal = store.get('canal');
+
+// ===== visor e teclado =====
+let digits = '';
+function renderVisor() {
+  const show = i => i < digits.length ? digits[i] : '<span class="dim">0</span>';
+  $('visor').innerHTML = show(0) + show(1) + '<span class="colon">:</span>' + show(2) + show(3);
+}
+function flash(cls) {
+  const v = $('visor'); v.classList.remove('ok', 'bad'); void v.offsetWidth; v.classList.add(cls);
+  setTimeout(() => v.classList.remove(cls), 900);
+}
+function msg(t, cls) { $('msg').className = 'msg ' + (cls || ''); $('msg').textContent = t; }
+
+document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
+  if (digits.length >= 4) return;
+  digits += k.dataset.n;
+  if (digits.length === 2 && +digits > 23) { digits = ''; flash('bad'); msg('Hora inválida', 'bad'); }
+  else if (digits.length === 4 && +digits.slice(2) > 59) { digits = digits.slice(0, 2); flash('bad'); msg('Minuto inválido', 'bad'); }
+  renderVisor();
+}));
+$('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
+
+// ===== indicador do relógio do mágico =====
+// verde: app aberto e relógio ligado | amarelo: app aberto, relógio desligado | vermelho: sem sinal
+let online = false, lastSt = null, pingTimer = null, pingWait = null;
+function setPill(kind, text) {
+  $('pill').className = 'pill ' + kind;
+  $('pillTxt').textContent = text;
+}
+function showStatus() {
+  if (!online) return setPill('red wait', 'Sem internet');
+  if (!lastSt) return setPill('wait', 'Procurando...');
+  if (lastSt.rx && lastSt.bt) return setPill('green', 'Relógio pronto');
+  if (lastSt.rx) return setPill('yellow', 'App aberto, relógio desligado');
+  setPill('red', 'Sem sinal');
+}
+function publish(obj) {
+  return fetch(NTFY + canal, { method: 'POST', body: JSON.stringify(obj) }).then(r => r.ok).catch(() => false);
+}
+function ping() {
+  if (!online) return;
+  publish({ k: 'ping' });
+  clearTimeout(pingWait);
+  pingWait = setTimeout(() => { lastSt = { rx: 0, bt: 0 }; showStatus(); }, 7000);   // sem resposta = sem sinal
+}
+function gotStatus(rx, bt) {
+  clearTimeout(pingWait);
+  lastSt = { rx: rx ? 1 : 0, bt: bt ? 1 : 0 };
+  showStatus();
+}
+
+// ===== envio =====
+let pending = null;   // {id, h, m, timer}
+$('sendBtn').addEventListener('click', async () => {
+  if (digits.length < 4) { flash('bad'); msg('Digite os 4 números', 'bad'); return; }
+  const h = +digits.slice(0, 2), m = +digits.slice(2);
+  if (h > 23 || m > 59) { flash('bad'); msg('Hora inválida', 'bad'); return; }
+  const id = Math.random().toString(36).slice(2, 10);
+  if (pending) clearTimeout(pending.timer);
+  pending = { id, h, m };
+  msg('Enviando ' + pad(h) + ':' + pad(m) + '...');
+  const sent = await publish({ k: 'hora', h, m, id });
+  if (!pending || pending.id !== id) return;
+  if (!sent) { pending = null; flash('bad'); msg('✗ Não enviou — sem internet?', 'bad'); return; }
+  msg('Aguardando o relógio ' + pad(h) + ':' + pad(m) + '...');
+  pending.timer = setTimeout(() => {
+    if (pending && pending.id === id) { pending = null; flash('bad'); msg('✗ Sem resposta — o app do mágico está aberto?', 'bad'); }
+  }, 12000);
+});
+
+function gotOk(o) {
+  if (!pending || o.id !== pending.id) return;
+  clearTimeout(pending.timer);
+  const t = pad(pending.h) + ':' + pad(pending.m);
+  pending = null;
+  if (o.ok) { flash('ok'); msg('✓ Relógio recebeu ' + t, 'good'); digits = ''; renderVisor(); }
+  else { flash('bad'); msg(o.bt ? '✗ O relógio não confirmou ' + t : '✗ Relógio desligado do Bluetooth', 'bad'); }
+}
+
+// ===== canal =====
+let es = null, esRetry = null;
+function openChannel() {
+  clearTimeout(esRetry);
+  if (es) { try { es.close(); } catch (e) {} es = null; }
+  try { es = new EventSource(NTFY + canal + '/sse'); } catch (e) { esRetry = setTimeout(openChannel, 4000); return; }
+  es.onopen = () => { online = true; showStatus(); ping(); };
+  es.onmessage = ev => {
+    let d, o;
+    try { d = JSON.parse(ev.data); o = JSON.parse(d.message); } catch (e) { return; }
+    if (!d || d.event !== 'message' || !o) return;
+    if (o.k === 'st') gotStatus(o.rx, o.bt);
+    else if (o.k === 'ok') { gotStatus(1, o.bt); gotOk(o); }
+  };
+  es.onerror = () => {
+    online = false; showStatus();
+    if (es && es.readyState === 2) { es = null; esRetry = setTimeout(openChannel, 4000); }
+  };
+}
+
+renderVisor();
+if (!canal) { $('nolink').classList.add('show'); }
+else {
+  showStatus();
+  openChannel();
+  pingTimer = setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!es || es.readyState === 2) openChannel(); else ping();
+  });
+  window.addEventListener('online', () => openChannel());
+  $('pill').addEventListener('click', () => { lastSt = null; showStatus(); ping(); });
+}
+</script>
+</body>
+</html>

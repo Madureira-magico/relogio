@@ -70,6 +70,13 @@
   .qb:active { background: #33363c; }
   .qb svg { width: 16px; height: 16px; }
   .qb b { color: #5DCAA5; font-weight: 500; }
+  /* antena (receber pela internet) */
+  .ant { width: 30px; height: 34px; display: flex; align-items: center; justify-content: center; color: #E24B4A; }
+  .ant svg { width: 24px; height: 24px; }
+  .ant.listen { color: #5DCAA5; animation: pulse 1.2s ease-in-out infinite; }
+  .ant.got { color: #5DCAA5; }
+  .ant.off { color: #E24B4A; }
+  .ant.err { color: #E24B4A; animation: pulse 1.2s ease-in-out infinite; }
   .ver { text-align: right; font-size: 12px; color: #888780; padding-top: 2px; flex-shrink: 0; }
 
   /* telas por cima (configurações, calibragem) */
@@ -89,6 +96,12 @@
   .wide.go { background: #1D9E75; }
   .two { display: flex; gap: 10px; width: 100%; max-width: 380px; margin: 0 auto; }
   .note { font-size: 12px; color: #888780; text-align: center; min-height: 16px; margin: 6px 0; }
+  .note.sel { -webkit-user-select: text; user-select: text; word-break: break-all; color: #D3D1C7; }
+  .divider { height: 1px; background: #3a3c42; margin: 4px 6px; }
+  .sw { display: block; width: 50px; height: 30px; border-radius: 15px; background: #5F5E5A; position: relative; transition: background .2s; flex-shrink: 0; }
+  .sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left .2s; }
+  .sw.on { background: #1D9E75; }
+  .sw.on::after { left: 23px; }
 
   /* janela de rolagem */
   .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 30; display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -153,6 +166,9 @@
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 
   <div class="quick">
+    <div class="ant off" id="ant" aria-label="Receber pela internet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>
+    </div>
     <button class="qb" id="forceBtn">Force <b id="forceVal">--:--</b></button>
     <button class="qb" id="nowBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>agora
@@ -161,7 +177,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.4 1.8 2.9 0 3.4a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 0 0 1-2.5c-.9-1.6.8-3.3 2.4-2.4 1 .6 2.3.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
   </div>
-  <div class="ver">v1.6.1</div>
+  <div class="ver">v2.0</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -173,6 +189,9 @@
     <button class="row" data-set="freeze"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg>Tempo Congelado</span><b class="v" id="vFreeze">--</b></button>
     <button class="row" data-set="safe"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 0 1 4 0v2"/></svg>Tempo de Segurança</span><b class="v" id="vSafe">--</b></button>
     <button class="row" id="calOpen"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>Calibragem</span><b class="v">›</b></button>
+    <div class="divider"></div>
+    <button class="row" id="rxRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>Receber pela internet</span><i class="sw" id="rxSw"></i></button>
+    <button class="row" id="linkRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Link do assistente</span><b class="v">copiar</b></button>
   </div>
   <div class="note" id="cfgNote"></div>
   <button class="wide" id="cfgBack">‹ Voltar</button>
@@ -294,6 +313,7 @@ function setBt(state) {
   $('btDot').className = 'dot ' + cls;
   if (state === 'on') everConnected = true;
   if (state !== 'on') setBattery(null);
+  if (typeof statusChanged === 'function') statusChanged();
 }
 
 function setBattery(level) {
@@ -577,6 +597,126 @@ async function keepAwake() {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && writeChar) keepAwake(); });
 
+// ===== Receber pela internet (canal secreto no ntfy.sh) =====
+// Mensagens no canal (texto JSON):
+//   assistente -> {k:'hora', h, m, id}   |  {k:'ping'}
+//   este app   -> {k:'ok', id, h, m, ok, bt}  |  {k:'st', rx, bt}
+const NTFY = 'https://ntfy.sh/';
+let canal = store.get('canal');
+if (!canal) {
+  const r = new Uint8Array(18); (self.crypto || window.crypto).getRandomValues(r);
+  canal = 'rmr' + [...r].map(x => (x % 36).toString(36)).join('');
+  store.set('canal', canal);
+}
+let rxOn = store.get('rx') === true;
+let es = null, esRetry = null, antTimer = null, antState = 'off';
+
+function setAnt(s) {
+  antState = s; $('ant').className = 'ant ' + s;
+  if (s !== 'got') clearTimeout(antTimer);
+}
+function publish(obj) {
+  try { return fetch(NTFY + canal, { method: 'POST', body: JSON.stringify(obj), keepalive: true }).catch(() => {}); }
+  catch (e) { return Promise.resolve(); }
+}
+const btOn = () => !!writeChar;
+let lastSent = null, stTimer = null;
+function publishStatus(force) {
+  if (!rxOn) return;
+  const bt = btOn();
+  if (!force && lastSent === bt) return;
+  lastSent = bt;
+  publish({ k: 'st', rx: 1, bt: bt ? 1 : 0 });
+}
+function statusChanged() {           // chamado quando o Bluetooth muda
+  clearTimeout(stTimer);
+  stTimer = setTimeout(() => publishStatus(false), 800);
+}
+
+function openChannel() {
+  closeChannel();
+  if (!rxOn) { setAnt('off'); return; }
+  if (typeof EventSource === 'undefined') { setAnt('err'); return; }
+  setAnt('err');
+  try { es = new EventSource(NTFY + canal + '/sse'); } catch (e) { es = null; esRetry = setTimeout(openChannel, 4000); return; }
+  es.onopen = () => { if (antState !== 'got') setAnt('listen'); publishStatus(true); };
+  es.onmessage = (ev) => {
+    let d, o;
+    try { d = JSON.parse(ev.data); } catch (e) { return; }
+    if (!d || d.event !== 'message' || typeof d.message !== 'string') return;
+    try { o = JSON.parse(d.message); } catch (e) { o = parseLoose(d.message); }
+    if (!o) return;
+    if (o.k === 'hora' && d.time && Date.now() / 1000 - d.time > 20) return;   // hora velha (chegou atrasada): ignora
+    onRemote(o);
+  };
+  es.onerror = () => {
+    setAnt('err');
+    if (es && es.readyState === 2) { es = null; clearTimeout(esRetry); esRetry = setTimeout(openChannel, 4000); }
+  };
+}
+function closeChannel() {
+  clearTimeout(esRetry);
+  if (es) { try { es.close(); } catch (e) {} es = null; }
+}
+// aceita também texto simples: "1450", "14:50", "14h50"
+function parseLoose(t) {
+  const x = String(t).match(/(\d{1,2})\s*[:h.]?\s*(\d{2})/i);
+  if (!x) return null;
+  return { k: 'hora', h: +x[1], m: +x[2], id: null };
+}
+
+let remotePending = null, remoteRunning = false;
+function onRemote(o) {
+  if (!rxOn) return;
+  if (o.k === 'ping') { publishStatus(true); return; }
+  if (o.k !== 'hora') return;
+  const h = +o.h, m = +o.m;
+  if (!(h >= 0 && h <= 23 && m >= 0 && m <= 59)) return;
+  remotePending = { h, m, id: o.id || null };   // se chegar outra, vale a última
+  if (!remoteRunning) runRemote();
+}
+async function runRemote() {
+  remoteRunning = true;
+  while (remotePending) {
+    for (let i = 0; i < 100 && busy; i++) await sleep(100);   // espera um envio em andamento
+    const r = remotePending; remotePending = null;
+    if (!r) break;
+    const ok = await sendTime(r.h, r.m);
+    publish({ k: 'ok', id: r.id, h: r.h, m: r.m, ok: ok ? 1 : 0, bt: btOn() ? 1 : 0 });
+    if (ok && rxOn) {
+      setAnt('got');
+      clearTimeout(antTimer);
+      antTimer = setTimeout(() => { if (antState === 'got') setAnt(es && es.readyState === 1 ? 'listen' : 'err'); }, 2000);
+    }
+  }
+  remoteRunning = false;
+}
+
+function setRx(on, init) {
+  rxOn = on; store.set('rx', on);
+  $('rxSw').classList.toggle('on', on);
+  if (on) { lastSent = null; openChannel(); }
+  else { if (!init) publish({ k: 'st', rx: 0, bt: btOn() ? 1 : 0 }); closeChannel(); setAnt('off'); }
+}
+$('rxRow').addEventListener('click', () => setRx(!rxOn));
+
+function assistLink() { return location.origin + location.pathname.replace(/[^/]*$/, '') + 'assistente.html#' + canal; }
+$('linkRow').addEventListener('click', async () => {
+  const link = assistLink(), note = $('cfgNote');
+  note.classList.remove('sel');
+  try { await navigator.clipboard.writeText(link); note.textContent = 'Link copiado — mande para o assistente'; return; } catch (e) {}
+  try { if (navigator.share) { await navigator.share({ title: 'Relógio — assistente', url: link }); note.textContent = ''; return; } } catch (e) {}
+  note.classList.add('sel'); note.textContent = link;
+});
+
+window.addEventListener('online', () => { if (rxOn && (!es || es.readyState !== 1)) openChannel(); });
+window.addEventListener('offline', () => { if (rxOn) setAnt('err'); });
+document.addEventListener('visibilitychange', () => {
+  if (!rxOn) return;
+  if (document.visibilityState === 'visible') { if (!es || es.readyState === 2) openChannel(); else publishStatus(true); }
+});
+window.addEventListener('pagehide', () => { if (rxOn) publish({ k: 'st', rx: 0, bt: 0 }); });
+
 // ===== Botões da tela principal =====
 $('btDot').addEventListener('click', () => {
   if (writeChar) return;
@@ -690,6 +830,7 @@ $('calCancel').addEventListener('click', () => leaveCal(false));
 renderVisor();
 setBt('idle');
 keepAwake();
+setRx(rxOn, true);
 autoConnect();
 </script>
 </body>
