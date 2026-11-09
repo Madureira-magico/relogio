@@ -99,7 +99,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver">v1.4</div>
+<div class="ver">v1.4.1</div>
 <div class="turn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
   Vire o celular de pé
@@ -218,10 +218,13 @@ async function connect() {
 }
 
 async function openGatt() {
-  const server = await device.gatt.connect();
+  const dev = device;
+  const server = await dev.gatt.connect();
   const svc = await server.getPrimaryService(SVC);
-  writeChar = await svc.getCharacteristic(WRITE);
+  const wc = await svc.getCharacteristic(WRITE);
   const notif = await svc.getCharacteristic(NOTIFY);
+  if (dev !== device) throw new Error('trocou de relógio');   // o usuário escolheu outro no meio do caminho
+  writeChar = wc;
   notif.removeEventListener('characteristicvaluechanged', onNotify);
   notif.addEventListener('characteristicvaluechanged', onNotify);
   await notif.startNotifications();
@@ -231,20 +234,32 @@ async function openGatt() {
 }
 
 // Conexão automática com o relógio já autorizado antes
+let autoToken = 0;
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), ms))]);
+
 async function autoConnect() {
+  const my = ++autoToken;
+  const cancelled = () => my !== autoToken;
   try {
     if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
-    const list = await navigator.bluetooth.getDevices();
+    const list = await withTimeout(navigator.bluetooth.getDevices(), 2500);
+    if (cancelled()) return;
     const d = list.find(x => (x.name || '').toUpperCase().startsWith('IARVEL')) || list[0];
     if (!d) return;
     device = d;
     device.addEventListener('gattserverdisconnected', onDisconnected);
     setBt('wait'); msg('Conectando sozinho...');
-    for (let i = 0; i < 3; i++) {
-      try { await openGatt(); return; } catch (e) { await sleep(1200); }
+    for (let i = 0; i < 2; i++) {
+      if (cancelled()) return;
+      try { await withTimeout(openGatt(), 5000); return; } catch (e) { await sleep(800); }
     }
+    if (cancelled()) return;
+    device = null;   // relógio guardado não respondeu: esquece e espera o toque
     setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
-  } catch (e) { setBt('idle'); }
+  } catch (e) {
+    if (cancelled()) return;
+    device = null; setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
+  }
 }
 
 function onNotify(ev) {
@@ -265,7 +280,8 @@ function waitWatch(h, m, ms) {
   });
 }
 
-async function onDisconnected() {
+async function onDisconnected(ev) {
+  if (ev && ev.target && device && ev.target !== device) return;   // aviso de um relógio antigo: ignora
   writeChar = null; watchTime = null; $('watch').textContent = '--:--';
   if (waiter) { const w = waiter; waiter = null; w.resolve(false); }
   setBt('lost');
@@ -331,7 +347,9 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ===== Botões =====
 $('btDot').addEventListener('click', () => {
-  if (device && device.gatt.connected) return;
+  if (writeChar) return;          // já está conectado de verdade
+  autoToken++;                    // cancela a conexão automática, o toque tem prioridade
+  device = null;                  // sempre abre a janela de escolher o relógio
   connect();
 });
 
