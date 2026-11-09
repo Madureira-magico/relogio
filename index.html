@@ -104,7 +104,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver" id="ver">v1.3.1</div>
+<div class="ver" id="ver">v1.3.2</div>
 <div class="diag" id="diag">
   <div style="font-size:16px;color:#fff">Comandos do Bluefy</div>
   <pre id="diagText"></pre>
@@ -285,10 +285,29 @@ function listBluefy() {
       if (typeof bn === 'function') out.push('codigo: ' + String(bn).slice(0, 400));
     }
   } catch (e) { out.push('erro BLENative: ' + e.message); }
-  // Como o comando da tela acesa fala com o Bluefy por dentro
+  // Cardápio de intenções do Bluefy
+  out.push('', '=== CARDAPIO RequestIntentType ===');
   try {
-    const f = navigator.bluetooth && navigator.bluetooth.setScreenDimEnabled;
-    if (f) out.push('', '=== setScreenDimEnabled por dentro ===', String(f).slice(0, 500));
+    const t = (0, eval)('typeof RequestIntentType');
+    if (t !== 'undefined') out.push(JSON.stringify((0, eval)('RequestIntentType'), null, 1));
+    else out.push('(não acessível direto)');
+  } catch (e) { out.push('erro: ' + e.message); }
+  // Como o pedido é enviado por dentro
+  try {
+    const bn = window.BLENative;
+    if (bn) {
+      out.push('', '=== BLENative.request por dentro ===', String(bn.request).slice(0, 900));
+      out.push('', '=== BLENative.enable por dentro ===', String(bn.enable).slice(0, 400));
+      out.push('', 'callbacks: ' + Object.keys(bn.callbacks || {}).join(', '));
+    }
+  } catch (e) { out.push('erro request: ' + e.message); }
+  // Outros comandos, para ver outros nomes de intenção
+  try {
+    const bt = navigator.bluetooth;
+    ['requestDevice', 'getAvailability', 'getDevices'].forEach(n => {
+      const s = String(bt[n]); const m = s.match(/RequestIntentType\.\w+/g);
+      out.push(n + ' usa: ' + (m ? [...new Set(m)].join(', ') : '(nada)'));
+    });
   } catch (e) {}
   try { if (window.webkit && window.webkit.messageHandlers) out.push('webkit.messageHandlers: existe'); } catch (e) {}
   out.push('', 'fullscreen padrão: ' + (document.documentElement.requestFullscreen ? 'sim' : document.documentElement.webkitRequestFullscreen ? 'webkit' : 'não'));
