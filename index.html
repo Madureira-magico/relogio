@@ -8,13 +8,15 @@
 <meta name="theme-color" content="#26282d">
 <title>Relógio</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   html, body { margin: 0; height: 100%; background: #26282d; color: #fff;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; overflow: hidden; }
+  button { font-family: inherit; }
   .app { max-width: 420px; margin: 0 auto; height: 100%; display: flex; flex-direction: column;
-    padding: calc(env(safe-area-inset-top) + 16px) 22px calc(env(safe-area-inset-bottom) + 22px); }
+    padding: calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 6px); }
 
-  .status { display: flex; justify-content: center; align-items: center; gap: 14px; padding-bottom: 14px; }
+  /* topo: bolinhas */
+  .status { display: flex; justify-content: center; align-items: center; gap: 14px; padding-bottom: 10px; flex-shrink: 0; }
   .dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; padding: 0; }
   .dot svg { width: 22px; height: 22px; }
   .ghost  { background: transparent; border: 1.5px solid #5F5E5A; color: #5F5E5A; }
@@ -32,31 +34,85 @@
   .bar { flex: 1; border-radius: 1px; background: transparent; }
   .bar.on { background: #fff; }
 
-  .info { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #888780; padding: 0 4px 10px; }
-  .info b { font-weight: 500; }
+  /* Agora e Relógio */
+  .info { display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 10px; color: #888780; flex-shrink: 0; }
+  .info .lbl { font-size: 13px; text-align: center; }
+  .info .big { font-size: 28px; font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
   #real { color: #D3D1C7; }
   #watch { color: #5DCAA5; }
-  .now { border: 1px solid #5DCAA5; border-radius: 8px; padding: 4px 9px; color: #D3D1C7; background: transparent; font-size: 14px; display: flex; align-items: center; gap: 5px; }
-  .now svg { width: 15px; height: 15px; }
+  #watch small { font-size: 14px; margin-left: 3px; }
+  .st-red { color: #E24B4A !important; }
+  .st-green { color: #5DCAA5 !important; }
+  .st-yellow { color: #EF9F27 !important; }
 
-  .visor { border: 1.5px solid #5DCAA5; border-radius: 20px; height: 96px; display: flex; align-items: center; justify-content: center;
-    font-size: 46px; font-weight: 500; margin-bottom: 18px; letter-spacing: 2px; transition: border-color .2s, background .2s; font-variant-numeric: tabular-nums; color: #5DCAA5; }
+  /* visor */
+  .visor { border: 1.5px solid #5DCAA5; border-radius: 20px; height: clamp(64px, 11vh, 92px); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    font-size: 44px; font-weight: 500; margin-bottom: 12px; letter-spacing: 2px; transition: border-color .2s, background .2s; font-variant-numeric: tabular-nums; color: #5DCAA5; }
   .visor .dim { color: #444441; }
   .colon { color: #fff; margin: 0 4px; position: relative; top: -4px; }
   .visor.ok  { border-color: #97C459; background: #1d3a2c; }
   .visor.bad { border-color: #E24B4A; background: #3a1f1f; }
 
-  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; flex: 1; max-height: 380px; }
+  /* teclado: ocupa o espaço que sobrar */
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); gap: 11px; flex: 1 1 auto; min-height: 200px; max-height: 400px; }
   .k { border: 1.5px solid #5DCAA5; border-radius: 18px; background: #33363c; color: #fff; font-size: 30px; font-weight: 500;
-    display: flex; align-items: center; justify-content: center; padding: 0; min-height: 60px; }
+    display: flex; align-items: center; justify-content: center; padding: 0; min-height: 44px; }
   .k:active { background: #444850; }
   .k svg { width: 30px; height: 30px; }
   .send { background: #1D9E75; }
   .send:active { background: #0F6E56; }
 
-  .msg { text-align: center; font-size: 13px; color: #888780; min-height: 20px; padding-top: 10px; }
-  .ver { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 12px; color: #888780; padding: 6px; pointer-events: none; }
-  .turn { position: fixed; inset: 0; background: #26282d; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #D3D1C7; font-size: 18px; }
+  .msg { text-align: center; font-size: 13px; color: #888780; min-height: 18px; padding-top: 8px; flex-shrink: 0; }
+
+  /* botões de baixo */
+  .quick { display: flex; justify-content: center; gap: 8px; padding-top: 6px; flex-shrink: 0; }
+  .qb { border: 1px solid #5DCAA5; border-radius: 9px; background: transparent; color: #D3D1C7; font-size: 14px; height: 34px; padding: 0 11px; display: flex; align-items: center; gap: 5px; }
+  .qb:active { background: #33363c; }
+  .qb svg { width: 16px; height: 16px; }
+  .qb b { color: #5DCAA5; font-weight: 500; }
+  .ver { text-align: right; font-size: 12px; color: #888780; padding-top: 2px; flex-shrink: 0; }
+
+  /* telas por cima (configurações, calibragem) */
+  .screen { position: fixed; inset: 0; background: #26282d; z-index: 10; display: none; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 16px); }
+  .screen.show { display: flex; }
+  .screen .ttl { color: #fff; font-size: 18px; font-weight: 500; text-align: center; }
+  .list { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; max-width: 380px; width: 100%; margin: 0 auto; }
+  .row { border: 1.5px solid #5DCAA5; border-radius: 14px; height: 54px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; color: #fff; font-size: 16px; background: #2d3035; width: 100%; }
+  .row:active { background: #3a3d43; }
+  .row span { display: flex; align-items: center; gap: 10px; }
+  .row svg { width: 20px; height: 20px; color: #5DCAA5; }
+  .row .v { color: #5DCAA5; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .wide { border: 1.5px solid #5DCAA5; border-radius: 12px; height: 46px; background: #33363c; color: #fff; font-size: 15px; width: 100%; max-width: 380px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .wide.go { background: #1D9E75; }
+  .two { display: flex; gap: 10px; width: 100%; max-width: 380px; margin: 0 auto; }
+  .note { font-size: 12px; color: #888780; text-align: center; min-height: 16px; margin: 6px 0; }
+
+  /* janela de rolagem */
+  .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 30; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .sheet.show { display: flex; }
+  .card { width: 100%; max-width: 340px; }
+  .wheelbox { background: #33363c; border: 1.5px solid #5DCAA5; border-radius: 20px; padding: 12px 10px; }
+  .wheelbox .t { color: #fff; font-size: 16px; text-align: center; margin-bottom: 6px; }
+  .wheels { display: flex; justify-content: space-around; position: relative; }
+  .wheels::before { content: ""; position: absolute; left: 6px; right: 6px; top: 52px; height: 52px; border-radius: 12px; background: rgba(255,255,255,.06); pointer-events: none; }
+  .wheel { height: 156px; width: 45%; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; text-align: center; }
+  .wheel::-webkit-scrollbar { display: none; }
+  .wheel div { height: 52px; line-height: 52px; font-size: 30px; font-weight: 500; color: #888780; scroll-snap-align: center; font-variant-numeric: tabular-nums; }
+  .wheel div.sel { color: #fff; }
+  .wheel .pad { scroll-snap-align: none; }
+
+  /* calibragem */
+  .cal-dial { width: 150px; height: 150px; border-radius: 50%; border: 2px solid #5DCAA5; margin: 10px auto 18px; position: relative; }
+  .cal-dial::after { content: ""; position: absolute; left: 71px; top: 16px; width: 8px; height: 60px; background: #5DCAA5; border-radius: 4px; }
+  .cal-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; max-width: 380px; width: 100%; margin-left: auto; margin-right: auto; }
+  .cal-row span { color: #fff; font-size: 16px; }
+  .pm { width: 58px; height: 58px; border-radius: 50%; border: 1.5px solid #5DCAA5; background: #33363c; color: #5DCAA5; font-size: 28px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .pm:active { background: #1D9E75; color: #fff; }
+
+  .turn { position: fixed; inset: 0; background: #26282d; z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #D3D1C7; font-size: 18px; }
   .turn svg { width: 56px; height: 56px; color: #5DCAA5; }
   @media (orientation: landscape) and (max-height: 520px) { .turn { display: flex; } }
 </style>
@@ -75,11 +131,8 @@
   </div>
 
   <div class="info">
-    <span>Agora <b id="real">--:--</b></span>
-    <span>Relógio <b id="watch">--:--</b></span>
-    <button id="nowBtn" class="now" aria-label="Mandar hora atual">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>agora
-    </button>
+    <div><div class="lbl">Agora</div><div class="big" id="real">--:--</div></div>
+    <div><div class="lbl">Relógio</div><div class="big" id="watch">--:--</div></div>
   </div>
 
   <div id="visor" class="visor"></div>
@@ -98,8 +151,57 @@
   </div>
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
+
+  <div class="quick">
+    <button class="qb" id="forceBtn">Force <b id="forceVal">--:--</b></button>
+    <button class="qb" id="nowBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>agora
+    </button>
+    <button class="qb" id="cfgBtn" aria-label="Configurações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.4 1.8 2.9 0 3.4a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 0 0 1-2.5c-.9-1.6.8-3.3 2.4-2.4 1 .6 2.3.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </div>
+  <div class="ver">v1.6</div>
 </div>
-<div class="ver">v1.5</div>
+
+<!-- Tela de configurações -->
+<div class="screen" id="cfgScreen">
+  <div class="ttl">Configurações</div>
+  <div class="list">
+    <button class="row" data-set="force"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Hora Force</span><b class="v" id="vForce">--:--</b></button>
+    <button class="row" data-set="crown"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Tempo da Coroa</span><b class="v" id="vCrown">--</b></button>
+    <button class="row" data-set="freeze"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg>Tempo Congelado</span><b class="v" id="vFreeze">--</b></button>
+    <button class="row" data-set="safe"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 0 1 4 0v2"/></svg>Tempo de Segurança</span><b class="v" id="vSafe">--</b></button>
+    <button class="row" id="calOpen"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>Calibragem</span><b class="v">›</b></button>
+  </div>
+  <div class="note" id="cfgNote"></div>
+  <button class="wide" id="cfgBack">‹ Voltar</button>
+</div>
+
+<!-- Tela de calibragem -->
+<div class="screen" id="calScreen">
+  <div class="ttl">Calibragem</div>
+  <div class="note" style="margin-top:10px">Deixe os ponteiros exatamente em 12:00 usando − e +. Segure o botão para o ponteiro andar direto. Depois toque em Confirmar.</div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+    <div class="cal-dial"></div>
+    <div class="cal-row"><button class="pm" data-cal="h-">−</button><span>Ponteiro das horas</span><button class="pm" data-cal="h+">+</button></div>
+    <div class="cal-row"><button class="pm" data-cal="m-">−</button><span>Ponteiro dos minutos</span><button class="pm" data-cal="m+">+</button></div>
+  </div>
+  <div class="note" id="calNote"></div>
+  <div class="two"><button class="wide" id="calCancel">Cancelar</button><button class="wide go" id="calOk">Confirmar</button></div>
+</div>
+
+<!-- Janela de rolagem -->
+<div class="sheet" id="sheet">
+  <div class="card">
+    <div class="wheelbox">
+      <div class="t" id="sheetTitle"></div>
+      <div class="wheels"><div class="wheel" id="wA"></div><div class="wheel" id="wB"></div></div>
+    </div>
+    <div class="two" style="margin-top:10px"><button class="wide" id="sheetCancel">Cancelar</button><button class="wide go" id="sheetOk">Confirmar</button></div>
+  </div>
+</div>
+
 <div class="turn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
   Vire o celular de pé
@@ -110,9 +212,10 @@
 const SVC    = '58570001-b5a3-f393-e0a9-e50e24dcca9e';
 const WRITE  = '58570002-b5a3-f393-e0a9-e50e24dcca9e';
 const NOTIFY = '58570003-b5a3-f393-e0a9-e50e24dcca9e';
-const DEV = 0x05, OP = 0x24;
-const CONFIRM_MS = 2000;   // tempo esperando o relógio confirmar
-const TRIES = 3;           // tentativas por envio
+const DEV = 0x05;
+const OP = { time: 0x24, force: 27, freeze: 28, safe: 33, crown: 39, getSettings: 41,
+             calEnter: 10, calOk: 9, calLongEnd: 0 };
+const CONFIRM_MS = 2000, TRIES = 3;
 
 // ===== SHA-1 (puro JS) =====
 function sha1(bytes) {
@@ -144,21 +247,29 @@ function sha1(bytes) {
   return out;
 }
 
-// ===== Monta o comando de hora (12 bytes) =====
-let SI = 1 + Math.floor(Math.random() * 125);   // contador começa aleatório
-function buildPacket(hour, minute) {
-  SI = SI >= 126 ? 1 : SI + 1;
-  const pre = new Uint8Array([0x58, 0x57, DEV, OP, SI, hour, minute, 0x68, 0x78]);
-  const tail = sha1(pre).slice(0, 4);
-  const pkt = new Uint8Array(12);
-  pkt.set([0x58, 0x57, DEV, OP, SI, hour, minute, 0x00]); pkt.set(tail, 8);
-  return pkt;
+// ===== Receita única de todos os comandos (igual ao app oficial) =====
+// assinatura = SHA1(58 57 DEV op a b c 68 78)[0..3]
+// pacote     = 58 57 DEV op a b c d + assinatura
+function packet(op, a, b, c, d) {
+  const pre = new Uint8Array([0x58, 0x57, DEV, op, a & 255, b & 255, c & 255, 0x68, 0x78]);
+  const p = new Uint8Array(12);
+  p.set([0x58, 0x57, DEV, op, a & 255, b & 255, c & 255, d & 255]); p.set(sha1(pre).slice(0, 4), 8);
+  return p;
 }
+let SI = 1 + Math.floor(Math.random() * 125);
+function timePacket(h, m) { SI = SI >= 126 ? 1 : SI + 1; return packet(OP.time, SI, h, m, 0); }
+
+// ===== Memória do celular (com proteção) =====
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem('relogio_' + k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem('relogio_' + k, JSON.stringify(v)); } catch (e) {} }
+};
 
 // ===== Interface =====
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmtDur = s => (s == null ? '--' : Math.floor(s / 60) + 'm' + (s % 60) + 's');
 let digits = '';
 
 function msg(t) { $('msg').textContent = t; }
@@ -174,14 +285,14 @@ function flash(cls) {
 }
 
 let everConnected = false;
-function setBt(state) { // 'idle' | 'wait' | 'on' | 'lost'
+function setBt(state) {
   const cls = { idle: 'ghost', wait: (everConnected ? 'bt-lost' : 'ghost') + ' bt-wait', on: 'bt-on', lost: 'bt-lost' }[state];
   $('btDot').className = 'dot ' + cls;
   if (state === 'on') everConnected = true;
   if (state !== 'on') setBattery(null);
 }
 
-function setBattery(level) { // 20,40,60,80,100 / 101,102 = carregando / null = desconhecido
+function setBattery(level) {
   const dot = $('batDot'), bars = dot.querySelectorAll('.bar');
   let n = 0, cls = 'ghost';
   if (level != null) {
@@ -195,10 +306,21 @@ function setBattery(level) { // 20,40,60,80,100 / 101,102 = carregando / null = 
 function tickClock() { const d = new Date(); $('real').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 setInterval(tickClock, 1000); tickClock();
 
+// ===== Configurações guardadas =====
+let settings = store.get('settings') || { force: null, crown: null, freeze: null, safe: null };
+function renderSettings() {
+  const f = settings.force;
+  const fs = f ? pad(f.h) + ':' + pad(f.m) : '--:--';
+  $('forceVal').textContent = fs; $('vForce').textContent = fs;
+  $('vCrown').textContent = fmtDur(settings.crown);
+  $('vFreeze').textContent = fmtDur(settings.freeze);
+  $('vSafe').textContent = fmtDur(settings.safe);
+}
+renderSettings();
+
 // ===== Bluetooth =====
 let device = null, writeChar = null, retrying = false, busy = false;
-let watchTime = null;     // última hora informada pelo relógio {h, m}
-let waiter = null;        // quem está esperando a confirmação
+let watchTime = null, waiter = null, settingsWaiter = null;
 
 async function connect() {
   if (!navigator.bluetooth) { msg('Abra este app dentro do Bluefy'); return; }
@@ -223,7 +345,7 @@ async function openGatt() {
   const svc = await server.getPrimaryService(SVC);
   const wc = await svc.getCharacteristic(WRITE);
   const notif = await svc.getCharacteristic(NOTIFY);
-  if (dev !== device) throw new Error('trocou de relógio');   // o usuário escolheu outro no meio do caminho
+  if (dev !== device) throw new Error('trocou de relógio');
   writeChar = wc;
   notif.removeEventListener('characteristicvaluechanged', onNotify);
   notif.addEventListener('characteristicvaluechanged', onNotify);
@@ -238,27 +360,21 @@ let linkHour = null;
 (function readLinkHour() {
   try {
     const v = new URLSearchParams(location.search).get('hora');
-    if (v && /^\d{4}$/.test(v)) {
-      const h = +v.slice(0, 2), m = +v.slice(2);
-      if (h <= 23 && m <= 59) linkHour = { h, m };
-    }
+    if (v && /^\d{4}$/.test(v)) { const h = +v.slice(0, 2), m = +v.slice(2); if (h <= 23 && m <= 59) linkHour = { h, m }; }
   } catch (e) {}
 })();
-
 async function sendLinkHour() {
-  const { h, m } = linkHour;
-  linkHour = null;
-  // tira a hora do endereço, para não reenviar se a página recarregar
+  const { h, m } = linkHour; linkHour = null;
   try { const u = new URL(location.href); u.searchParams.delete('hora'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
   await sleep(500);
   await sendTime(h, m);
+  readSettings();
 }
 
-// Conexão automática com o relógio já autorizado antes
+// Conexão automática com o relógio já autorizado
 let autoToken = 0;
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), ms))]);
 
-// Escuta os sinais do relógio até ele aparecer (ou até acabar o tempo)
 function listenFor(d, ms) {
   if (!d || typeof d.watchAdvertisements !== 'function') return Promise.resolve(false);
   return new Promise(resolve => {
@@ -293,7 +409,6 @@ async function autoConnect() {
     device = d;
     device.addEventListener('gattserverdisconnected', onDisconnected);
     setBt('wait'); msg('Procurando o relógio...');
-    // Primeiro "escuta" o relógio no ar, depois conecta
     await listenFor(d, 8000);
     if (cancelled()) return;
     msg('Conectando sozinho...');
@@ -302,24 +417,32 @@ async function autoConnect() {
       try { await withTimeout(openGatt(), 8000); return; } catch (e) { await sleep(800); }
     }
     if (cancelled()) return;
-    device = null;   // relógio guardado não respondeu: esquece e espera o toque
-    setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
+    device = null; setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
   } catch (e) {
     if (cancelled()) return;
     device = null; setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
   }
 }
 
+// Mensagens que chegam do relógio
+const STATE_CLASS = { 0: 'st-red', 1: 'st-green', 2: 'st-yellow', 3: 'st-green' };
 function onNotify(ev) {
   const b = new Uint8Array(ev.target.value.buffer);
-  if (b.length < 12 || b[0] !== 0x58 || b[1] !== 0x57 || b[4] !== 0x28) return;
-  watchTime = { h: b[9], m: b[10] };
-  $('watch').textContent = pad(b[9]) + ':' + pad(b[10]);
-  setBattery(b[3]);
-  if (waiter && waiter.h === b[9] && waiter.m === b[10]) { const w = waiter; waiter = null; w.resolve(true); }
+  if (b.length < 10 || b[0] !== 0x58 || b[1] !== 0x57) return;
+  if (b[4] === 0x28 && b.length >= 12) {          // status: hora que o relógio marca
+    watchTime = { h: b[9], m: b[10] };
+    const w = $('watch');
+    w.innerHTML = pad(b[9]) + ':' + pad(b[10]) + '<small>' + pad(b[11]) + '</small>';
+    w.className = 'big ' + (STATE_CLASS[b[6]] || 'st-red');
+    setBattery(b[3]);
+    if (waiter && waiter.h === b[9] && waiter.m === b[10]) { const x = waiter; waiter = null; x.resolve(true); }
+  } else if (b[4] === 0x29) {                      // resposta com as configurações guardadas
+    settings = { crown: b[5], safe: b[6], freeze: b[7], force: (b[8] <= 23 && b[9] <= 59) ? { h: b[8], m: b[9] } : settings.force };
+    store.set('settings', settings); renderSettings();
+    if (settingsWaiter) { const x = settingsWaiter; settingsWaiter = null; x(settings); }
+  }
 }
 
-// Espera o relógio informar a hora pedida
 function waitWatch(h, m, ms) {
   if (watchTime && watchTime.h === h && watchTime.m === m) return Promise.resolve(true);
   return new Promise(resolve => {
@@ -329,9 +452,9 @@ function waitWatch(h, m, ms) {
 }
 
 async function onDisconnected(ev) {
-  if (ev && ev.target && device && ev.target !== device) return;   // aviso de um relógio antigo: ignora
-  writeChar = null; watchTime = null; $('watch').textContent = '--:--';
-  if (waiter) { const w = waiter; waiter = null; w.resolve(false); }
+  if (ev && ev.target && device && ev.target !== device) return;
+  writeChar = null; watchTime = null; $('watch').textContent = '--:--'; $('watch').className = 'big';
+  if (waiter) { const x = waiter; waiter = null; x.resolve(false); }
   setBt('lost');
   if (retrying) return;
   retrying = true; msg('Conexão caiu. Reconectando...');
@@ -343,16 +466,17 @@ async function onDisconnected(ev) {
   if (!device || !device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
 }
 
-async function writePacket(pkt) {
-  if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(pkt);
-  else await writeChar.writeValue(pkt);
+async function writePacket(p) {
+  if (!writeChar) throw new Error('sem conexão');
+  if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(p);
+  else await writeChar.writeValue(p);
 }
 
-// Envia e confirma pela hora que o relógio devolve; reenvia sozinho se precisar
+// Envia a hora e confirma pelo que o relógio devolve; reenvia sozinho
 async function sendConfirmed(h, m) {
   for (let i = 1; i <= TRIES; i++) {
     if (!writeChar) return false;
-    try { await writePacket(buildPacket(h, m)); } catch (e) { await sleep(300); continue; }
+    try { await writePacket(timePacket(h, m)); } catch (e) { await sleep(300); continue; }
     if (await waitWatch(h, m, CONFIRM_MS)) return true;
     if (i < TRIES) msg('Reenviando ' + pad(h) + ':' + pad(m) + '...');
   }
@@ -370,7 +494,6 @@ async function sendTime(h, m) {
   return ok;
 }
 
-// Ao conectar: 12:00 e depois a hora atual (sinal de que está tudo certo)
 async function warmUp() {
   if (busy) return;
   busy = true;
@@ -383,6 +506,36 @@ async function warmUp() {
   const b = await sendConfirmed(d.getHours(), d.getMinutes());
   busy = false;
   msg(a && b ? 'Relógio pronto' : 'Conectado, mas o relógio não confirmou o teste');
+  readSettings();
+}
+
+// Pede ao relógio as configurações guardadas
+function readSettings(ms = 1500) {
+  if (!writeChar) return Promise.resolve(null);
+  return new Promise(async resolve => {
+    settingsWaiter = resolve;
+    setTimeout(() => { if (settingsWaiter === resolve) { settingsWaiter = null; resolve(null); } }, ms);
+    try { await writePacket(packet(OP.getSettings, 0, 0, 0, 5)); } catch (e) {}
+  });
+}
+
+// Grava uma configuração e confere lendo de volta
+async function saveSetting(kind, a, b) {
+  if (!writeChar) { $('cfgNote').textContent = 'Conecte o relógio primeiro'; return; }
+  if (busy) { $('cfgNote').textContent = 'Aguarde...'; return; }
+  busy = true; $('cfgNote').textContent = 'Salvando no relógio...';
+  const p = kind === 'force' ? packet(OP.force, a, b, 0, 5) : packet(OP[kind], a, 0, 0, 5);
+  let ok = false;
+  for (let i = 0; i < TRIES && !ok; i++) {
+    try { await writePacket(p); } catch (e) {}
+    await sleep(250);
+    const s = await readSettings();
+    if (s) ok = kind === 'force' ? (s.force && s.force.h === a && s.force.m === b) : s[kind] === a;
+  }
+  busy = false;
+  if (kind === 'force') settings.force = { h: a, m: b }; else settings[kind] = a;
+  store.set('settings', settings); renderSettings();
+  $('cfgNote').textContent = ok ? 'Salvo no relógio' : 'Enviado (o relógio não confirmou a leitura)';
 }
 
 // Mantém a tela acesa
@@ -393,35 +546,116 @@ async function keepAwake() {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && writeChar) keepAwake(); });
 
-// ===== Botões =====
+// ===== Botões da tela principal =====
 $('btDot').addEventListener('click', () => {
-  if (writeChar) return;          // já está conectado de verdade
-  autoToken++;                    // cancela a conexão automática, o toque tem prioridade
-  device = null;                  // sempre abre a janela de escolher o relógio
-  connect();
+  if (writeChar) return;
+  autoToken++; device = null; connect();
 });
 
 document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
   if (digits.length >= 4) return;
   digits += k.dataset.n;
-  if (digits.length === 2 && +digits > 23) {
-    digits = ''; flash('bad'); msg('Hora inválida');
-  } else if (digits.length === 4 && +digits.slice(2) > 59) {
-    digits = digits.slice(0, 2); flash('bad'); msg('Minuto inválido');
-  }
+  if (digits.length === 2 && +digits > 23) { digits = ''; flash('bad'); msg('Hora inválida'); }
+  else if (digits.length === 4 && +digits.slice(2) > 59) { digits = digits.slice(0, 2); flash('bad'); msg('Minuto inválido'); }
   renderVisor();
 }));
-
 $('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
-
 $('sendBtn').addEventListener('click', async () => {
   if (digits.length < 4) { flash('bad'); msg('Digite os 4 números'); return; }
   const h = +digits.slice(0, 2), m = +digits.slice(2);
   if (h > 23 || m > 59) { flash('bad'); msg('Hora inválida'); return; }
   if (await sendTime(h, m)) { digits = ''; renderVisor(); }
 });
-
 $('nowBtn').addEventListener('click', () => { const d = new Date(); sendTime(d.getHours(), d.getMinutes()); });
+$('forceBtn').addEventListener('click', () => {
+  if (!settings.force) { msg('Defina a Hora Force nas configurações'); return; }
+  sendTime(settings.force.h, settings.force.m);
+});
+
+// ===== Tela de configurações =====
+$('cfgBtn').addEventListener('click', () => { $('cfgNote').textContent = ''; $('cfgScreen').classList.add('show'); readSettings(); });
+$('cfgBack').addEventListener('click', () => $('cfgScreen').classList.remove('show'));
+
+// Janela de rolagem (duas colunas)
+function fillWheel(el, values, sel) {
+  el.innerHTML = '<div class="pad"></div>' + values.map(v => '<div>' + v + '</div>').join('') + '<div class="pad"></div>';
+  el.scrollTop = sel * 52;
+  const mark = () => { const i = Math.round(el.scrollTop / 52); [...el.children].forEach((c, j) => c.classList.toggle('sel', j === i + 1)); };
+  el.onscroll = mark; mark();
+}
+const wheelIndex = el => Math.max(0, Math.min(el.children.length - 3, Math.round(el.scrollTop / 52)));
+let sheetKind = null;
+function openSheet(kind) {
+  sheetKind = kind;
+  const titles = { force: 'Hora Force', crown: 'Tempo da Coroa', freeze: 'Tempo Congelado', safe: 'Tempo de Segurança' };
+  $('sheetTitle').textContent = titles[kind];
+  $('sheet').classList.add('show');
+  if (kind === 'force') {
+    const f = settings.force || { h: 12, m: 0 };
+    fillWheel($('wA'), [...Array(24)].map((_, i) => pad(i)), f.h);
+    fillWheel($('wB'), [...Array(60)].map((_, i) => pad(i)), f.m);
+  } else {
+    const s = settings[kind] || 0;
+    fillWheel($('wA'), ['0m', '1m'], Math.floor(s / 60));
+    fillWheel($('wB'), [...Array(60)].map((_, i) => i + 's'), s % 60);
+  }
+}
+document.querySelectorAll('.row[data-set]').forEach(r => r.addEventListener('click', () => openSheet(r.dataset.set)));
+$('sheetCancel').addEventListener('click', () => $('sheet').classList.remove('show'));
+$('sheetOk').addEventListener('click', () => {
+  const a = wheelIndex($('wA')), b = wheelIndex($('wB'));
+  $('sheet').classList.remove('show');
+  if (sheetKind === 'force') saveSetting('force', a, b);
+  else saveSetting(sheetKind, a * 60 + b);
+});
+
+// ===== Calibragem =====
+const calStep = { 'h-': 1, 'h+': 1, 'm-': 1, 'm+': 1 };
+const CAL_OP = { 'h-': 5, 'h+': 6, 'm-': 7, 'm+': 8 };      // um passo
+const CAL_LONG = { 'h-': 1, 'h+': 2, 'm-': 3, 'm+': 4 };    // girar direto (segurando)
+$('calOpen').addEventListener('click', async () => {
+  if (!writeChar) { $('cfgNote').textContent = 'Conecte o relógio primeiro'; return; }
+  $('calNote').textContent = 'Entrando na calibragem...';
+  $('calScreen').classList.add('show');
+  try { await writePacket(packet(OP.calEnter, 0, 0, 0, 1)); await sleep(300); await writePacket(packet(OP.calEnter, 0, 0, 0, 1)); } catch (e) {}
+  $('calNote').textContent = '';
+});
+document.querySelectorAll('.pm[data-cal]').forEach(btn => {
+  const k = btn.dataset.cal;
+  let holdTimer = null, holding = false;
+  const start = (e) => {
+    e.preventDefault();
+    holding = false;
+    holdTimer = setTimeout(async () => {
+      holding = true;
+      try { await writePacket(packet(CAL_LONG[k], 0, 0, 0, 0)); } catch (e) {}
+    }, 450);
+  };
+  const end = async (e) => {
+    e.preventDefault();
+    clearTimeout(holdTimer);
+    try {
+      if (holding) await writePacket(packet(OP.calLongEnd, 0, 0, 0, 0));
+      else { const s = calStep[k]; calStep[k] = s >= 255 ? 1 : s + 1; await writePacket(packet(CAL_OP[k], s, 0, 0, s)); }
+    } catch (e) {}
+    holding = false;
+  };
+  btn.addEventListener('touchstart', start, { passive: false });
+  btn.addEventListener('touchend', end, { passive: false });
+  btn.addEventListener('touchcancel', end, { passive: false });
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', end);
+});
+async function leaveCal(confirm) {
+  try {
+    if (confirm) { await writePacket(packet(OP.calOk, 0, 10, 10, 1)); $('calNote').textContent = 'Calibragem salva'; await sleep(800); }
+  } catch (e) {}
+  $('calScreen').classList.remove('show');
+  const d = new Date();
+  sendTime(d.getHours(), d.getMinutes());   // volta para a hora atual
+}
+$('calOk').addEventListener('click', () => leaveCal(true));
+$('calCancel').addEventListener('click', () => leaveCal(false));
 
 renderVisor();
 setBt('idle');
