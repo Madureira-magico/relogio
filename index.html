@@ -99,7 +99,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver">v1.4.2</div>
+<div class="ver">v1.5</div>
 <div class="turn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
   Vire o celular de pé
@@ -230,7 +230,28 @@ async function openGatt() {
   await notif.startNotifications();
   setBt('on'); msg('Conectado');
   keepAwake();
-  warmUp();
+  if (linkHour) sendLinkHour(); else warmUp();
+}
+
+// Hora vinda do link: .../relogio/?hora=0738
+let linkHour = null;
+(function readLinkHour() {
+  try {
+    const v = new URLSearchParams(location.search).get('hora');
+    if (v && /^\d{4}$/.test(v)) {
+      const h = +v.slice(0, 2), m = +v.slice(2);
+      if (h <= 23 && m <= 59) linkHour = { h, m };
+    }
+  } catch (e) {}
+})();
+
+async function sendLinkHour() {
+  const { h, m } = linkHour;
+  linkHour = null;
+  // tira a hora do endereço, para não reenviar se a página recarregar
+  try { const u = new URL(location.href); u.searchParams.delete('hora'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
+  await sleep(500);
+  await sendTime(h, m);
 }
 
 // Conexão automática com o relógio já autorizado antes
