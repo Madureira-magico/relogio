@@ -161,7 +161,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.4 1.8 2.9 0 3.4a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 0 0 1-2.5c-.9-1.6.8-3.3 2.4-2.4 1 .6 2.3.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
   </div>
-  <div class="ver">v1.6</div>
+  <div class="ver">v1.6.1</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -257,7 +257,11 @@ function packet(op, a, b, c, d) {
   return p;
 }
 let SI = 1 + Math.floor(Math.random() * 125);
-function timePacket(h, m) { SI = SI >= 126 ? 1 : SI + 1; return packet(OP.time, SI, h, m, 0); }
+// hora "de mágica": o último número é o Tempo de Segurança (igual ao app oficial)
+function timePacket(h, m) { SI = SI >= 126 ? 1 : SI + 1; return packet(OP.time, SI, h, m, safeSecs()); }
+// hora local com segundos (botão agora e teste ao conectar) — não mexe no Tempo de Segurança
+function localPacket(h, m, s) { return packet(38, h, m, s, 1); }
+const safeSecs = () => { const v = settings && settings.safe; return (v >= 0 && v <= 119) ? v : 0; };
 
 // ===== Memória do celular (com proteção) =====
 const store = {
@@ -352,6 +356,7 @@ async function openGatt() {
   await notif.startNotifications();
   setBt('on'); msg('Conectado');
   keepAwake();
+  await readSettings(2000);          // primeiro descobre o Tempo de Segurança guardado
   if (linkHour) sendLinkHour(); else warmUp();
 }
 
@@ -368,7 +373,6 @@ async function sendLinkHour() {
   try { const u = new URL(location.href); u.searchParams.delete('hora'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
   await sleep(500);
   await sendTime(h, m);
-  readSettings();
 }
 
 // Conexão automática com o relógio já autorizado
@@ -431,6 +435,10 @@ function onNotify(ev) {
   if (b.length < 10 || b[0] !== 0x58 || b[1] !== 0x57) return;
   if (b[4] === 0x28 && b.length >= 12) {          // status: hora que o relógio marca
     watchTime = { h: b[9], m: b[10] };
+    if (b.length >= 19 && !watchMac) {
+      watchMac = [...b.slice(13, 19)].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+      startPolling();
+    }
     const w = $('watch');
     w.innerHTML = pad(b[9]) + ':' + pad(b[10]) + '<small>' + pad(b[11]) + '</small>';
     w.className = 'big ' + (STATE_CLASS[b[6]] || 'st-red');
@@ -453,7 +461,7 @@ function waitWatch(h, m, ms) {
 
 async function onDisconnected(ev) {
   if (ev && ev.target && device && ev.target !== device) return;
-  writeChar = null; watchTime = null; $('watch').textContent = '--:--'; $('watch').className = 'big';
+  writeChar = null; watchTime = null; stopPolling(); $('watch').textContent = '--:--'; $('watch').className = 'big';
   if (waiter) { const x = waiter; waiter = null; x.resolve(false); }
   setBt('lost');
   if (retrying) return;
@@ -466,47 +474,70 @@ async function onDisconnected(ev) {
   if (!device || !device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
 }
 
-async function writePacket(p) {
-  if (!writeChar) throw new Error('sem conexão');
-  if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(p);
-  else await writeChar.writeValue(p);
+let writeQueue = Promise.resolve();
+function writePacket(p) {
+  const job = writeQueue.then(async () => {
+    if (!writeChar) throw new Error('sem conexão');
+    if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(p);
+    else await writeChar.writeValue(p);
+  });
+  writeQueue = job.catch(() => {});
+  return job;
 }
 
+// ===== Chave de sondagem (igual ao app oficial, a cada segundo) =====
+// texto: 5857 05 40 + id do celular (4) + endereço do relógio (12) + HHMMSS
+let watchMac = null, pollTimer = null;
+let phoneId = store.get('phoneId');
+if (!phoneId) { phoneId = ('0000' + Math.floor(Math.random() * 65536).toString(16)).slice(-4); store.set('phoneId', phoneId); }
+function pollKey() {
+  const d = new Date();
+  const txt = '5857' + pad(DEV) + '40' + phoneId + watchMac + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  return new TextEncoder().encode(txt);
+}
+function startPolling() {
+  if (pollTimer || !watchMac) return;
+  pollTimer = setInterval(() => { if (writeChar && watchMac) writePacket(pollKey()).catch(() => {}); }, 1000);
+}
+function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+
 // Envia a hora e confirma pelo que o relógio devolve; reenvia sozinho
-async function sendConfirmed(h, m) {
+async function sendConfirmed(h, m, make = timePacket) {
   for (let i = 1; i <= TRIES; i++) {
     if (!writeChar) return false;
-    try { await writePacket(timePacket(h, m)); } catch (e) { await sleep(300); continue; }
+    try { await writePacket(make(h, m)); } catch (e) { await sleep(300); continue; }
     if (await waitWatch(h, m, CONFIRM_MS)) return true;
     if (i < TRIES) msg('Reenviando ' + pad(h) + ':' + pad(m) + '...');
   }
   return false;
 }
 
-async function sendTime(h, m) {
+async function sendTime(h, m, make = timePacket) {
   if (!writeChar) { flash('bad'); msg('Conecte o relógio primeiro'); return false; }
   if (busy) { msg('Aguarde...'); return false; }
   busy = true; msg('Enviando ' + pad(h) + ':' + pad(m) + '...');
-  const ok = await sendConfirmed(h, m);
+  const ok = await sendConfirmed(h, m, make);
   busy = false;
   if (ok) { flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m)); }
   else { flash('bad'); msg('O relógio não confirmou. Tente de novo'); }
   return ok;
 }
 
+const nowPacket = () => { const d = new Date(); return localPacket(d.getHours(), d.getMinutes(), d.getSeconds()); };
+function sendNow() { const d = new Date(); return sendTime(d.getHours(), d.getMinutes(), nowPacket); }
+
 async function warmUp() {
   if (busy) return;
   busy = true;
   await sleep(500);
   msg('Testando: 12:00');
-  const a = await sendConfirmed(12, 0);
+  const a = await sendConfirmed(12, 0, () => localPacket(12, 0, 0));
   await sleep(1200);
   const d = new Date();
   msg('Voltando para ' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
-  const b = await sendConfirmed(d.getHours(), d.getMinutes());
+  const b = await sendConfirmed(d.getHours(), d.getMinutes(), nowPacket);
   busy = false;
   msg(a && b ? 'Relógio pronto' : 'Conectado, mas o relógio não confirmou o teste');
-  readSettings();
 }
 
 // Pede ao relógio as configurações guardadas
@@ -566,7 +597,7 @@ $('sendBtn').addEventListener('click', async () => {
   if (h > 23 || m > 59) { flash('bad'); msg('Hora inválida'); return; }
   if (await sendTime(h, m)) { digits = ''; renderVisor(); }
 });
-$('nowBtn').addEventListener('click', () => { const d = new Date(); sendTime(d.getHours(), d.getMinutes()); });
+$('nowBtn').addEventListener('click', () => sendNow());
 $('forceBtn').addEventListener('click', () => {
   if (!settings.force) { msg('Defina a Hora Force nas configurações'); return; }
   sendTime(settings.force.h, settings.force.m);
@@ -651,8 +682,7 @@ async function leaveCal(confirm) {
     if (confirm) { await writePacket(packet(OP.calOk, 0, 10, 10, 1)); $('calNote').textContent = 'Calibragem salva'; await sleep(800); }
   } catch (e) {}
   $('calScreen').classList.remove('show');
-  const d = new Date();
-  sendTime(d.getHours(), d.getMinutes());   // volta para a hora atual
+  sendNow();   // volta para a hora atual
 }
 $('calOk').addEventListener('click', () => leaveCal(true));
 $('calCancel').addEventListener('click', () => leaveCal(false));
