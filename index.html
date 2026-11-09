@@ -55,7 +55,15 @@
   .send:active { background: #0F6E56; }
 
   .msg { text-align: center; font-size: 13px; color: #888780; min-height: 20px; padding-top: 10px; }
-  .ver { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 11px; color: #444441; pointer-events: none; }
+  .ver { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 12px; color: #888780; padding: 6px; -webkit-touch-callout: none; }
+  .diag { position: fixed; inset: 0; background: #1b1c20; color: #D3D1C7; z-index: 10; display: none; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 16px) 18px calc(env(safe-area-inset-bottom) + 16px); }
+  .diag.show { display: flex; }
+  .diag pre { flex: 1; overflow: auto; font-size: 13px; white-space: pre-wrap; word-break: break-all; margin: 10px 0; -webkit-user-select: text; user-select: text; }
+  .diag button { height: 44px; border-radius: 12px; border: 1.5px solid #5DCAA5; background: #33363c; color: #fff; font-size: 16px; }
+  .turn { position: fixed; inset: 0; background: #26282d; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #D3D1C7; font-size: 18px; }
+  .turn svg { width: 56px; height: 56px; color: #5DCAA5; }
+  @media (orientation: landscape) and (max-height: 520px) { .turn { display: flex; } }
 </style>
 </head>
 <body>
@@ -96,7 +104,16 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
-<div class="ver">v1.2</div>
+<div class="ver" id="ver">v1.3</div>
+<div class="diag" id="diag">
+  <div style="font-size:16px;color:#fff">Comandos do Bluefy</div>
+  <pre id="diagText"></pre>
+  <button id="diagClose">Fechar</button>
+</div>
+<div class="turn">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+  Vire o celular de pé
+</div>
 
 <script>
 // ===== Constantes do relógio Iarvel =====
@@ -219,6 +236,45 @@ async function openGatt() {
   keepAwake();
 }
 
+// ===== Recursos especiais do Bluefy =====
+function bluefyNoDim() {
+  try { const bt = navigator.bluetooth; if (bt && typeof bt.setScreenDimEnabled === 'function') bt.setScreenDimEnabled(false); } catch (e) {}
+}
+function bluefyFullscreen() {
+  const bt = navigator.bluetooth; if (!bt) return;
+  ['setFullscreen', 'setFullScreen', 'setFullscreenEnabled', 'setFullScreenEnabled', 'enterFullscreen', 'enterFullScreen', 'requestFullscreen', 'requestFullScreen']
+    .forEach(n => { try { if (typeof bt[n] === 'function') bt[n](true); } catch (e) {} });
+}
+let triedStdFullscreen = false;
+function stdFullscreen() {
+  if (triedStdFullscreen) return; triedStdFullscreen = true;
+  const el = document.documentElement;
+  try { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const p = f.call(el); if (p && p.catch) p.catch(() => {}); } } catch (e) {}
+}
+function listBluefy() {
+  const out = [];
+  const bt = navigator.bluetooth;
+  if (!bt) out.push('navigator.bluetooth: NÃO EXISTE');
+  else {
+    const seen = new Set();
+    for (let o = bt; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) {
+      Object.getOwnPropertyNames(o).forEach(n => {
+        if (seen.has(n) || n === 'constructor') return; seen.add(n);
+        let t = '?'; try { t = typeof bt[n]; } catch (e) {}
+        out.push('bluetooth.' + n + '  (' + t + ')');
+      });
+    }
+  }
+  try {
+    Object.getOwnPropertyNames(window).filter(n => /blue|fy|full|pnn|native|bridge/i.test(n)).forEach(n => out.push('window.' + n));
+  } catch (e) {}
+  try { if (window.webkit && window.webkit.messageHandlers) out.push('webkit.messageHandlers: existe'); } catch (e) {}
+  out.push('', 'fullscreen padrão: ' + (document.documentElement.requestFullscreen ? 'sim' : document.documentElement.webkitRequestFullscreen ? 'webkit' : 'não'));
+  out.push('Navegador: ' + navigator.userAgent);
+  return out.join('\n');
+}
+bluefyNoDim();
+
 function onNotify(ev) {
   const b = new Uint8Array(ev.target.value.buffer);
   if (b.length < 12 || b[0] !== 0x58 || b[1] !== 0x57 || b[4] !== 0x28) return;
@@ -260,11 +316,24 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ===== Botões =====
 $('btDot').addEventListener('click', () => {
+  bluefyFullscreen(); bluefyNoDim();
   if (device && device.gatt.connected) return;
   manualDisconnect = false; connect();
 });
 
+// Segurar o dedo na versão mostra a lista de comandos do Bluefy
+let pressTimer = null;
+const startPress = (e) => { e.preventDefault(); pressTimer = setTimeout(() => { $('diagText').textContent = listBluefy(); $('diag').classList.add('show'); }, 700); };
+const endPress = () => clearTimeout(pressTimer);
+$('ver').addEventListener('touchstart', startPress, { passive: false });
+$('ver').addEventListener('touchend', endPress);
+$('ver').addEventListener('touchcancel', endPress);
+$('ver').addEventListener('mousedown', startPress);
+$('ver').addEventListener('mouseup', endPress);
+$('diagClose').addEventListener('click', () => $('diag').classList.remove('show'));
+
 document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
+  stdFullscreen();
   if (digits.length >= 4) return;
   digits += k.dataset.n;
   // Confere cada metade assim que fica completa
