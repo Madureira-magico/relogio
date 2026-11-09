@@ -55,6 +55,7 @@
   .send:active { background: #0F6E56; }
 
   .msg { text-align: center; font-size: 13px; color: #888780; min-height: 20px; padding-top: 10px; }
+  .ver { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 11px; color: #444441; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -95,6 +96,7 @@
 
   <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
+<div class="ver">v1.2</div>
 
 <script>
 // ===== Constantes do relógio Iarvel =====
@@ -248,7 +250,7 @@ async function sendTime(h, m) {
   } catch (e) { flash('bad'); msg('Falhou ao enviar. Tente de novo'); }
   return false;
 }
- 
+
 // Mantém a tela acesa (quando o navegador permitir)
 let wakeLock = null;
 async function keepAwake() {
@@ -264,7 +266,14 @@ $('btDot').addEventListener('click', () => {
 
 document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
   if (digits.length >= 4) return;
-  digits += k.dataset.n; renderVisor();
+  digits += k.dataset.n;
+  // Confere cada metade assim que fica completa
+  if (digits.length === 2 && +digits > 23) {
+    digits = ''; flash('bad'); msg('Hora inválida');
+  } else if (digits.length === 4 && +digits.slice(2) > 59) {
+    digits = digits.slice(0, 2); flash('bad'); msg('Minuto inválido');
+  }
+  renderVisor();
 }));
 
 $('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
