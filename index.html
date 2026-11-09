@@ -248,7 +248,7 @@ async function sendTime(h, m) {
   } catch (e) { flash('bad'); msg('Falhou ao enviar. Tente de novo'); }
   return false;
 }
-
+ 
 // Mantém a tela acesa (quando o navegador permitir)
 let wakeLock = null;
 async function keepAwake() {
