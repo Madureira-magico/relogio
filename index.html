@@ -17,15 +17,18 @@
   .status { display: flex; justify-content: center; align-items: center; gap: 14px; padding-bottom: 14px; }
   .dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; padding: 0; }
   .dot svg { width: 22px; height: 22px; }
-  .bt-on  { background: #E1F5EE; color: #0F6E56; }
-  .bt-off { background: #E24B4A; color: #fff; }
-  .bt-wait { background: #EF9F27; color: #fff; }
+  .ghost  { background: transparent; border: 1.5px solid #5F5E5A; color: #5F5E5A; }
+  .bt-on  { background: #1D9E75; color: #fff; }
+  .bt-lost { background: #E24B4A; color: #fff; }
+  .bt-wait { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
   .sep { width: 2px; height: 28px; background: #888780; border-radius: 1px; }
   .bat-ok  { background: #1D9E75; }
   .bat-low { background: #E24B4A; }
-  .bat-none { background: #5F5E5A; }
   .bat { width: 23px; height: 13px; border: 1.8px solid #fff; border-radius: 3px; display: flex; gap: 1.5px; padding: 1.5px; position: relative; }
   .bat::after { content: ""; position: absolute; right: -5px; top: 3px; width: 2.5px; height: 4.5px; background: #fff; border-radius: 0 1px 1px 0; }
+  .ghost .bat { border-color: #5F5E5A; }
+  .ghost .bat::after { background: #5F5E5A; }
   .bar { flex: 1; border-radius: 1px; background: transparent; }
   .bar.on { background: #fff; }
 
@@ -37,10 +40,9 @@
   .now svg { width: 15px; height: 15px; }
 
   .visor { border: 1.5px solid #5DCAA5; border-radius: 20px; height: 96px; display: flex; align-items: center; justify-content: center;
-    font-size: 46px; font-weight: 500; margin-bottom: 18px; letter-spacing: 2px; transition: border-color .2s, background .2s; font-variant-numeric: tabular-nums; }
-  .visor .dim { color: #5F5E5A; }
-  .colon { display: inline-flex; flex-direction: column; gap: 11px; margin: 0 12px; }
-  .colon i { width: 11px; height: 11px; border-radius: 50%; background: #fff; display: block; }
+    font-size: 46px; font-weight: 500; margin-bottom: 18px; letter-spacing: 2px; transition: border-color .2s, background .2s; font-variant-numeric: tabular-nums; color: #5DCAA5; }
+  .visor .dim { color: #444441; }
+  .colon { color: #fff; margin: 0 4px; position: relative; top: -4px; }
   .visor.ok  { border-color: #97C459; background: #1d3a2c; }
   .visor.bad { border-color: #E24B4A; background: #3a1f1f; }
 
@@ -59,11 +61,11 @@
 <div class="app">
 
   <div class="status">
-    <button id="btDot" class="dot bt-off" aria-label="Conectar ao relógio">
+    <button id="btDot" class="dot ghost" aria-label="Conectar ao relógio">
       <svg id="btIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
     </button>
     <div class="sep"></div>
-    <div id="batDot" class="dot bat-none" aria-label="Bateria do relógio">
+    <div id="batDot" class="dot ghost" aria-label="Bateria do relógio">
       <div class="bat"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
     </div>
   </div>
@@ -91,7 +93,7 @@
     </button>
   </div>
 
-  <div id="msg" class="msg">Toque na bolinha vermelha para conectar</div>
+  <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
 </div>
 
 <script>
@@ -146,15 +148,14 @@ function buildPacket(hour, minute) {
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const ICON_BT  = '<path d="M7 8l10 8-5 4V4l5 4-10 8"/>';
-const ICON_OFF = '<path d="M3 3l18 18"/><path d="M16.17 16.17L12 20V12"/><path d="M7 8l5 4"/><path d="M12 4l5 4-1.83 1.47"/>';
 let digits = '';
 
 function msg(t) { $('msg').textContent = t; }
 
+// Digitação da esquerda para a direita: HH depois MM
 function renderVisor() {
-  const d = digits.padStart(4, ' ');
-  const show = (ch) => ch === ' ' ? '<span class="dim">0</span>' : ch;
-  $('visor').innerHTML = show(d[0]) + show(d[1]) + '<span class="colon"><i></i><i></i></span>' + show(d[2]) + show(d[3]);
+  const show = (i) => i < digits.length ? digits[i] : '<span class="dim">0</span>';
+  $('visor').innerHTML = show(0) + show(1) + '<span class="colon">:</span>' + show(2) + show(3);
 }
 
 function flash(cls) {
@@ -162,16 +163,18 @@ function flash(cls) {
   setTimeout(() => v.classList.remove(cls), 900);
 }
 
-function setBt(state) { // 'on' | 'off' | 'wait'
+let everConnected = false;
+function setBt(state) { // 'idle' | 'wait' | 'on' | 'lost'
   const dot = $('btDot');
-  dot.className = 'dot ' + (state === 'on' ? 'bt-on' : state === 'wait' ? 'bt-wait' : 'bt-off');
-  $('btIcon').innerHTML = state === 'off' ? ICON_OFF : ICON_BT;
+  const cls = { idle: 'ghost', wait: (everConnected ? 'bt-lost' : 'ghost') + ' bt-wait', on: 'bt-on', lost: 'bt-lost' }[state];
+  dot.className = 'dot ' + cls;
+  if (state === 'on') everConnected = true;
   if (state !== 'on') setBattery(null);
 }
 
 function setBattery(level) { // 20,40,60,80,100 / 101,102 = carregando / null = desconhecido
   const dot = $('batDot'), bars = dot.querySelectorAll('.bar');
-  let n = 0, cls = 'bat-none';
+  let n = 0, cls = 'ghost';
   if (level != null) {
     if (level > 100) { n = 4; cls = 'bat-ok'; }
     else { n = level <= 20 ? 1 : level <= 40 ? 2 : level <= 60 ? 3 : 4; cls = level <= 20 ? 'bat-low' : 'bat-ok'; }
@@ -199,7 +202,7 @@ async function connect() {
     }
     await openGatt();
   } catch (e) {
-    setBt('off'); msg('Não conectou. Toque na bolinha para tentar de novo');
+    setBt(everConnected ? 'lost' : 'idle'); msg('Não conectou. Toque na bolinha para tentar de novo');
   }
 }
 
@@ -223,12 +226,12 @@ function onNotify(ev) {
 
 async function onDisconnected() {
   writeChar = null; $('watch').textContent = '--:--';
-  setBt('off');
+  setBt('lost');
   if (manualDisconnect || retrying) return;
   retrying = true; msg('Conexão caiu. Reconectando...');
   for (let i = 0; i < 5 && device && !device.gatt.connected; i++) {
     try { setBt('wait'); await openGatt(); break; }
-    catch (e) { setBt('off'); await new Promise(r => setTimeout(r, 1500)); }
+    catch (e) { setBt('lost'); await new Promise(r => setTimeout(r, 1500)); }
   }
   retrying = false;
   if (!device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
@@ -241,7 +244,9 @@ async function sendTime(h, m) {
     if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(pkt);
     else await writeChar.writeValue(pkt);
     flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m));
+    return true;
   } catch (e) { flash('bad'); msg('Falhou ao enviar. Tente de novo'); }
+  return false;
 }
 
 // Mantém a tela acesa (quando o navegador permitir)
@@ -258,23 +263,24 @@ $('btDot').addEventListener('click', () => {
 });
 
 document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
-  digits = (digits + k.dataset.n).slice(-4); renderVisor();
+  if (digits.length >= 4) return;
+  digits += k.dataset.n; renderVisor();
 }));
 
 $('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
 
-$('sendBtn').addEventListener('click', () => {
-  if (!digits) { flash('bad'); return; }
-  const d = digits.padStart(4, '0');
-  const h = +d.slice(0, 2), m = +d.slice(2);
+$('sendBtn').addEventListener('click', async () => {
+  if (digits.length < 4) { flash('bad'); msg('Digite os 4 números'); return; }
+  const h = +digits.slice(0, 2), m = +digits.slice(2);
   if (h > 23 || m > 59) { flash('bad'); msg('Hora inválida'); return; }
-  sendTime(h, m);
+  if (await sendTime(h, m)) { digits = ''; renderVisor(); }
 });
 
 $('nowBtn').addEventListener('click', () => { const d = new Date(); sendTime(d.getHours(), d.getMinutes()); });
 
 renderVisor();
-setBt('off');
+setBt('idle');
+$('btIcon').innerHTML = ICON_BT;
 </script>
 </body>
 </html>
