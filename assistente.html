@@ -20,9 +20,9 @@
     padding: calc(env(safe-area-inset-top) + 14px) 20px calc(env(safe-area-inset-bottom) + 12px); }
 
   .top { display: flex; justify-content: center; padding-bottom: 14px; flex-shrink: 0; }
-  .pill { display: flex; align-items: center; gap: 8px; border-radius: 20px; padding: 8px 14px; font-size: 15px; font-weight: 500;
-    border: 1.5px solid #5F5E5A; color: #888780; }
-  .pill svg { width: 20px; height: 20px; }
+  .pill { display: flex; align-items: center; gap: 8px; border-radius: 20px; height: 38px; padding: 0 16px; font-size: 15px; font-weight: 500; line-height: 1;
+    border: 1.5px solid #A32D2D; color: #E24B4A; }
+  .pill svg { width: 20px; height: 20px; display: block; }
   .pill.green  { border-color: #1D9E75; color: #5DCAA5; }
   .pill.yellow { border-color: #BA7517; color: #EF9F27; }
   .pill.red    { border-color: #A32D2D; color: #E24B4A; }
@@ -44,9 +44,11 @@
   .send { background: #1D9E75; }
   .send:active { background: #0F6E56; }
 
-  .msg { text-align: center; font-size: 16px; color: #888780; min-height: 24px; padding-top: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .msg.good { color: #5DCAA5; }
-  .msg.bad  { color: #E24B4A; }
+  .dg { background: #1c1d21; border-radius: 18px; text-align: center; margin-top: 14px; flex-shrink: 0; height: clamp(84px, 14vh, 118px);
+    display: flex; align-items: center; justify-content: center; font-size: clamp(54px, 17vw, 76px); font-weight: 500; font-variant-numeric: tabular-nums; color: #444441; }
+  .dg small { font-size: .36em; margin-left: 6px; align-self: flex-end; margin-bottom: .55em; }
+  .dg.on { color: #fff; }
+  .dg.got { color: #EF9F27; }
   .ver { text-align: right; font-size: 12px; color: #888780; padding-top: 4px; flex-shrink: 0; }
 
   .nolink { position: fixed; inset: 0; background: #26282d; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 30px; text-align: center; color: #D3D1C7; font-size: 17px; }
@@ -58,9 +60,9 @@
 <body>
 <div class="app">
   <div class="top">
-    <div class="pill wait" id="pill">
+    <div class="pill" id="pill">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>
-      <span id="pillTxt">Procurando...</span>
+      <span id="pillTxt">Sem sinal</span>
     </div>
   </div>
 
@@ -79,8 +81,8 @@
     </button>
   </div>
 
-  <div id="msg" class="msg"></div>
-  <div class="ver">v2.0</div>
+  <div class="dg" id="dg">--:--</div>
+  <div class="ver">v2.1</div>
 </div>
 
 <div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
@@ -109,30 +111,22 @@ function flash(cls) {
   const v = $('visor'); v.classList.remove('ok', 'bad'); void v.offsetWidth; v.classList.add(cls);
   setTimeout(() => v.classList.remove(cls), 900);
 }
-function msg(t, cls) { $('msg').className = 'msg ' + (cls || ''); $('msg').textContent = t; }
-
 document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click', () => {
   if (digits.length >= 4) return;
   digits += k.dataset.n;
-  if (digits.length === 2 && +digits > 23) { digits = ''; flash('bad'); msg('Hora inválida', 'bad'); }
-  else if (digits.length === 4 && +digits.slice(2) > 59) { digits = digits.slice(0, 2); flash('bad'); msg('Minuto inválido', 'bad'); }
+  if (digits.length === 2 && +digits > 23) { digits = ''; flash('bad'); }
+  else if (digits.length === 4 && +digits.slice(2) > 59) { digits = digits.slice(0, 2); flash('bad'); }
   renderVisor();
 }));
 $('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
 
-// ===== indicador do relógio do mágico =====
-// verde: app aberto e relógio ligado | amarelo: app aberto, relógio desligado | vermelho: sem sinal
-let online = false, lastSt = null, pingTimer = null, pingWait = null;
-function setPill(kind, text) {
-  $('pill').className = 'pill ' + kind;
-  $('pillTxt').textContent = text;
-}
-function showStatus() {
-  if (!online) return setPill('red wait', 'Sem internet');
-  if (!lastSt) return setPill('wait', 'Procurando...');
-  if (lastSt.rx && lastSt.bt) return setPill('green', 'Relógio pronto');
-  if (lastSt.rx) return setPill('yellow', 'App aberto, relógio desligado');
-  setPill('red', 'Sem sinal');
+// ===== aviso de cima: Conectado / Sem sinal =====
+let online = false, linked = false, pingWait = null;
+function showPill() {
+  const ok = online && linked;
+  $('pill').className = 'pill' + (ok ? ' green' : '');
+  $('pillTxt').textContent = ok ? 'Conectado' : 'Sem sinal';
+  if (!ok) setWatch(null, 0);
 }
 function publish(obj) {
   return fetch(NTFY + canal, { method: 'POST', body: JSON.stringify(obj) }).then(r => r.ok).catch(() => false);
@@ -141,40 +135,65 @@ function ping() {
   if (!online) return;
   publish({ k: 'ping' });
   clearTimeout(pingWait);
-  pingWait = setTimeout(() => { lastSt = { rx: 0, bt: 0 }; showStatus(); }, 7000);   // sem resposta = sem sinal
+  pingWait = setTimeout(() => { linked = false; showPill(); }, 7000);   // ninguém respondeu = sem sinal
 }
-function gotStatus(rx, bt) {
+
+// ===== caixa do relógio do mágico =====
+// wt = segundos do dia que o relógio marca; y = segundos de Tempo de Segurança que faltam (laranja, parado)
+let wBase = null, wAt = 0, wSafe = 0, wGot = false;
+function setWatch(wt, y, got) {
+  if (wt == null) { wBase = null; drawWatch(); return; }
+  wBase = wt; wAt = Date.now(); wSafe = y || 0;
+  if (got) wGot = true;
+  drawWatch();
+}
+function drawWatch() {
+  const box = $('dg');
+  if (wBase == null) { box.className = 'dg'; box.textContent = '--:--'; return; }
+  const el = Math.floor((Date.now() - wAt) / 1000);
+  let t;
+  if (el < wSafe) t = wBase;                      // Tempo de Segurança: segundos parados
+  else t = (wBase + el - wSafe) % 86400;
+  const orange = el < Math.max(wSafe, wGot ? 3 : 0);
+  if (!orange) wGot = false;
+  box.className = 'dg ' + (orange ? 'got' : 'on');
+  box.innerHTML = pad(Math.floor(t / 3600)) + ':' + pad(Math.floor(t / 60) % 60) + '<small>' + pad(t % 60) + '</small>';
+}
+setInterval(drawWatch, 250);
+
+function gotStatus(o) {
   clearTimeout(pingWait);
-  lastSt = { rx: rx ? 1 : 0, bt: bt ? 1 : 0 };
-  showStatus();
+  linked = !!o.rx;
+  showPill();
+  if (linked) setWatch(o.bt ? o.wt : null, o.y);
 }
 
 // ===== envio =====
-let pending = null;   // {id, h, m, timer}
+let pending = null;
 $('sendBtn').addEventListener('click', async () => {
-  if (digits.length < 4) { flash('bad'); msg('Digite os 4 números', 'bad'); return; }
+  if (digits.length < 4) { flash('bad'); return; }
   const h = +digits.slice(0, 2), m = +digits.slice(2);
-  if (h > 23 || m > 59) { flash('bad'); msg('Hora inválida', 'bad'); return; }
+  if (h > 23 || m > 59) { flash('bad'); return; }
   const id = Math.random().toString(36).slice(2, 10);
   if (pending) clearTimeout(pending.timer);
   pending = { id, h, m };
-  msg('Enviando ' + pad(h) + ':' + pad(m) + '...');
   const sent = await publish({ k: 'hora', h, m, id });
   if (!pending || pending.id !== id) return;
-  if (!sent) { pending = null; flash('bad'); msg('✗ Não enviou — sem internet?', 'bad'); return; }
-  msg('Aguardando o relógio ' + pad(h) + ':' + pad(m) + '...');
-  pending.timer = setTimeout(() => {
-    if (pending && pending.id === id) { pending = null; flash('bad'); msg('✗ Sem resposta — o app do mágico está aberto?', 'bad'); }
-  }, 12000);
+  if (!sent) { pending = null; flash('bad'); return; }
+  pending.timer = setTimeout(() => { if (pending && pending.id === id) { pending = null; flash('bad'); } }, 12000);
 });
-
 function gotOk(o) {
-  if (!pending || o.id !== pending.id) return;
-  clearTimeout(pending.timer);
-  const t = pad(pending.h) + ':' + pad(pending.m);
-  pending = null;
-  if (o.ok) { flash('ok'); msg('✓ Relógio recebeu ' + t, 'good'); digits = ''; renderVisor(); }
-  else { flash('bad'); msg(o.bt ? '✗ O relógio não confirmou ' + t : '✗ Relógio desligado do Bluetooth', 'bad'); }
+  clearTimeout(pingWait);
+  linked = true; showPill();
+  const mine = pending && o.id === pending.id;
+  if (mine) { clearTimeout(pending.timer); pending = null; }
+  if (o.ok) {
+    setWatch(o.wt, o.y, true);
+    if (mine) { flash('ok'); digits = ''; renderVisor(); }
+  } else {
+    setWatch(o.bt ? o.wt : null, o.y);
+    if (mine) flash('bad');
+  }
 }
 
 // ===== canal =====
@@ -183,32 +202,32 @@ function openChannel() {
   clearTimeout(esRetry);
   if (es) { try { es.close(); } catch (e) {} es = null; }
   try { es = new EventSource(NTFY + canal + '/sse'); } catch (e) { esRetry = setTimeout(openChannel, 4000); return; }
-  es.onopen = () => { online = true; showStatus(); ping(); };
+  es.onopen = () => { online = true; ping(); };
   es.onmessage = ev => {
     let d, o;
     try { d = JSON.parse(ev.data); o = JSON.parse(d.message); } catch (e) { return; }
     if (!d || d.event !== 'message' || !o) return;
-    if (o.k === 'st') gotStatus(o.rx, o.bt);
-    else if (o.k === 'ok') { gotStatus(1, o.bt); gotOk(o); }
+    if (o.k === 'st') gotStatus(o);
+    else if (o.k === 'ok') gotOk(o);
   };
   es.onerror = () => {
-    online = false; showStatus();
+    online = false; linked = false; showPill();
     if (es && es.readyState === 2) { es = null; esRetry = setTimeout(openChannel, 4000); }
   };
 }
 
 renderVisor();
+showPill();
 if (!canal) { $('nolink').classList.add('show'); }
 else {
-  showStatus();
   openChannel();
-  pingTimer = setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 30000);
+  setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 30000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (!es || es.readyState === 2) openChannel(); else ping();
   });
   window.addEventListener('online', () => openChannel());
-  $('pill').addEventListener('click', () => { lastSt = null; showStatus(); ping(); });
+  $('pill').addEventListener('click', () => ping());
 }
 </script>
 </body>

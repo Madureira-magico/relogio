@@ -78,6 +78,25 @@
   .ant.off { color: #E24B4A; }
   .ant.err { color: #E24B4A; animation: pulse 1.2s ease-in-out infinite; }
   .ver { text-align: right; font-size: 12px; color: #888780; padding-top: 2px; flex-shrink: 0; }
+  .lockrow { display: flex; justify-content: center; padding-top: 8px; flex-shrink: 0; }
+  .lockbtn { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid #5DCAA5; background: transparent; color: #D3D1C7; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .lockbtn:active { background: #33363c; }
+  .lockbtn svg { width: 20px; height: 20px; }
+  .lockrow.hide { display: none; }
+
+  /* disfarce: tela de bloqueio falsa (cores casando com as faixas do Bluefy) */
+  .fake { position: fixed; inset: 0; z-index: 60; display: none; overflow: hidden; touch-action: none;
+    background: linear-gradient(180deg, #e7e7e7 0%, #dfe0e4 35%, #d2d4dc 70%, #c6c8d1 100%);
+    font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif; }
+  .fake.show { display: block; }
+  .fake .bk { position: absolute; border-radius: 50%; background: rgba(255,255,255,.33); filter: blur(3px); }
+  .fake .fdate { position: absolute; top: calc(env(safe-area-inset-top) + 34px); width: 100%; text-align: center; color: #4a4d57; font-size: 21px; font-weight: 600; font-family: -apple-system, system-ui, sans-serif; }
+  .fake .fclk { position: absolute; top: calc(env(safe-area-inset-top) + 62px); width: 100%; text-align: center; color: #3c3f49; font-size: 27vw; font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .fake .fbtn { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px); width: 52px; height: 52px; border-radius: 50%; background: rgba(60,63,73,.16);
+    display: flex; align-items: center; justify-content: center; color: #2f323b; }
+  .fake .fbtn svg { width: 24px; height: 24px; }
+  .fake .fname { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 38px); width: 100%; text-align: center; color: #3c3f49; font-size: 17px; line-height: 1.25; font-family: -apple-system, system-ui, sans-serif; }
+  .fake .fname svg { width: 17px; height: 15px; vertical-align: -1px; margin-right: 3px; }
 
   /* telas por cima (configurações, calibragem) */
   .screen { position: fixed; inset: 0; background: #26282d; z-index: 10; display: none; flex-direction: column;
@@ -177,7 +196,12 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.4 1.8 2.9 0 3.4a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 0 0 1-2.5c-.9-1.6.8-3.3 2.4-2.4 1 .6 2.3.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
   </div>
-  <div class="ver">v2.0</div>
+  <div class="lockrow" id="lockRow">
+    <button class="lockbtn" id="lockBtn" aria-label="Disfarce">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </button>
+  </div>
+  <div class="ver">v2.1</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -192,6 +216,7 @@
     <div class="divider"></div>
     <button class="row" id="rxRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>Receber pela internet</span><i class="sw" id="rxSw"></i></button>
     <button class="row" id="linkRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Link do assistente</span><b class="v">copiar</b></button>
+    <button class="row" id="dzRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Disfarce</span><i class="sw" id="dzSw"></i></button>
   </div>
   <div class="note" id="cfgNote"></div>
   <button class="wide" id="cfgBack">‹ Voltar</button>
@@ -219,6 +244,19 @@
     </div>
     <div class="two" style="margin-top:10px"><button class="wide" id="sheetCancel">Cancelar</button><button class="wide go" id="sheetOk">Confirmar</button></div>
   </div>
+</div>
+
+<!-- Disfarce: tela de bloqueio falsa -->
+<div class="fake" id="fake">
+  <div class="bk" style="width:46vw;height:46vw;left:-12vw;top:38%"></div>
+  <div class="bk" style="width:34vw;height:34vw;right:-6vw;top:22%;background:rgba(255,255,255,.26)"></div>
+  <div class="bk" style="width:40vw;height:40vw;left:18vw;top:56%;background:rgba(200,205,225,.33)"></div>
+  <div class="bk" style="width:36vw;height:36vw;right:2vw;top:62%;background:rgba(255,255,255,.22)"></div>
+  <div class="fdate" id="fDate"></div>
+  <div class="fclk" id="fClk"></div>
+  <div class="fbtn" style="left:30px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 2h8a1 1 0 0 1 1 1v2.2c0 .5-.2 1-.5 1.4L15 8.8V21a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8.8L7.5 6.6C7.2 6.2 7 5.7 7 5.2V3a1 1 0 0 1 1-1zm4 9.2a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg></div>
+  <div class="fname"><svg viewBox="0 0 24 21" fill="currentColor"><path d="M9 1h6a2 2 0 0 1 2 2v2h4a3 3 0 0 1 3 3v3H0V8a3 3 0 0 1 3-3h4V3a2 2 0 0 1 2-2zm0 2v2h6V3H9zM0 13h10v1.5a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V13h10v5a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3v-5z"/></svg>Riccardo<br>Madureira</div>
+  <div class="fbtn" style="right:30px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1.6 2.2H20a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7.2a2 2 0 0 1 2-2h3.4L9 3zm3 4.6a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm6.4-1.4a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg></div>
 </div>
 
 <div class="turn">
@@ -344,7 +382,7 @@ renderSettings();
 
 // ===== Bluetooth =====
 let device = null, writeChar = null, retrying = false, busy = false;
-let watchTime = null, waiter = null, settingsWaiter = null;
+let watchTime = null, watchAt = 0, safeUntil = 0, remoteSending = false, waiter = null, settingsWaiter = null;
 
 async function connect() {
   if (!navigator.bluetooth) { msg('Abra este app dentro do Bluefy'); return; }
@@ -454,7 +492,7 @@ function onNotify(ev) {
   const b = new Uint8Array(ev.target.value.buffer);
   if (b.length < 10 || b[0] !== 0x58 || b[1] !== 0x57) return;
   if (b[4] === 0x28 && b.length >= 12) {          // status: hora que o relógio marca
-    watchTime = { h: b[9], m: b[10] };
+    watchTime = { h: b[9], m: b[10], s: b[11] }; watchAt = Date.now();
     if (b.length >= 19 && !watchMac) {
       watchMac = [...b.slice(13, 19)].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
       startPolling();
@@ -538,7 +576,11 @@ async function sendTime(h, m, make = timePacket) {
   busy = true; msg('Enviando ' + pad(h) + ':' + pad(m) + '...');
   const ok = await sendConfirmed(h, m, make);
   busy = false;
-  if (ok) { flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m)); }
+  if (ok) {
+    flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m));
+    safeUntil = make === timePacket ? Date.now() + safeSecs() * 1000 : 0;   // tempo em que o relógio fica amarelo
+    if (!remoteSending && typeof publishStatus === 'function') publishStatus(true);
+  }
   else { flash('bad'); msg('O relógio não confirmou. Tente de novo'); }
   return ok;
 }
@@ -621,12 +663,19 @@ function publish(obj) {
 }
 const btOn = () => !!writeChar;
 let lastSent = null, stTimer = null;
+// hora do relógio para o assistente: wt = segundos do dia, y = segundos que ainda faltam do Tempo de Segurança
+function watchInfo() {
+  if (!writeChar || !watchTime) return { wt: null, y: 0 };
+  const now = Date.now(), base = watchTime.h * 3600 + watchTime.m * 60;
+  if (now < safeUntil) return { wt: base, y: Math.ceil((safeUntil - now) / 1000) };
+  return { wt: (base + watchTime.s + Math.floor((now - watchAt) / 1000)) % 86400, y: 0 };
+}
 function publishStatus(force) {
   if (!rxOn) return;
   const bt = btOn();
   if (!force && lastSent === bt) return;
   lastSent = bt;
-  publish({ k: 'st', rx: 1, bt: bt ? 1 : 0 });
+  publish(Object.assign({ k: 'st', rx: 1, bt: bt ? 1 : 0 }, watchInfo()));
 }
 function statusChanged() {           // chamado quando o Bluetooth muda
   clearTimeout(stTimer);
@@ -681,8 +730,10 @@ async function runRemote() {
     for (let i = 0; i < 100 && busy; i++) await sleep(100);   // espera um envio em andamento
     const r = remotePending; remotePending = null;
     if (!r) break;
+    remoteSending = true;
     const ok = await sendTime(r.h, r.m);
-    publish({ k: 'ok', id: r.id, h: r.h, m: r.m, ok: ok ? 1 : 0, bt: btOn() ? 1 : 0 });
+    remoteSending = false;
+    publish(Object.assign({ k: 'ok', id: r.id, h: r.h, m: r.m, ok: ok ? 1 : 0, bt: btOn() ? 1 : 0 }, watchInfo()));
     if (ok && rxOn) {
       setAnt('got');
       clearTimeout(antTimer);
@@ -716,6 +767,33 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') { if (!es || es.readyState === 2) openChannel(); else publishStatus(true); }
 });
 window.addEventListener('pagehide', () => { if (rxOn) publish({ k: 'st', rx: 0, bt: 0 }); });
+
+// ===== Disfarce: tela de bloqueio falsa =====
+const DIAS = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'];
+const MESES = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+let dzOn = store.get('disfarce') !== false, fakeTimer = null, lastTap = 0;
+function tickFake() {
+  const d = new Date();
+  $('fDate').textContent = DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()];
+  $('fClk').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function showFake() { tickFake(); clearInterval(fakeTimer); fakeTimer = setInterval(tickFake, 1000); $('fake').classList.add('show'); lastTap = 0; }
+function hideFake() { $('fake').classList.remove('show'); clearInterval(fakeTimer); }
+function setDz(on) {
+  dzOn = on; store.set('disfarce', on);
+  $('dzSw').classList.toggle('on', on);
+  $('lockRow').classList.toggle('hide', !on);
+  if (!on) hideFake();
+}
+$('lockBtn').addEventListener('click', showFake);
+$('dzRow').addEventListener('click', () => setDz(!dzOn));
+// sair: dois toques rápidos em qualquer lugar
+$('fake').addEventListener('touchend', e => {
+  e.preventDefault();
+  const t = Date.now();
+  if (t - lastTap < 400) { lastTap = 0; hideFake(); } else lastTap = t;
+}, { passive: false });
+$('fake').addEventListener('dblclick', hideFake);
 
 // ===== Botões da tela principal =====
 $('btDot').addEventListener('click', () => {
@@ -831,6 +909,7 @@ renderVisor();
 setBt('idle');
 keepAwake();
 setRx(rxOn, true);
+setDz(dzOn);
 autoConnect();
 </script>
 </body>
