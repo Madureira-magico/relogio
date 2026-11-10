@@ -82,7 +82,7 @@
   </div>
 
   <div class="dg" id="dg">--:--</div>
-  <div class="ver">v2.2.4</div>
+  <div class="ver">v2.2.5</div>
 </div>
 
 <div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
@@ -195,7 +195,9 @@ async function start() {
   if (!(await loadAbly())) { diag('Ably: não carregou o arquivo ably.min.js'); setTimeout(start, 8000); return; }
   diag('Ably: conectando...');
   try {
-  ably = AblyPubSub.createClient({ key: ABLY_KEY, clientId: 'assist-' + Math.random().toString(36).slice(2, 8), echoMessages: false });
+  let cid = store.get('cid');                         // sempre o mesmo nome (conta 1 usuário só no Ably)
+  if (!cid) { cid = 'assist-' + Math.random().toString(36).slice(2, 8); store.set('cid', cid); }
+  ably = AblyPubSub.createClient({ key: ABLY_KEY, clientId: cid, echoMessages: false });
   ch = ably.channels.get('relogio:' + canal);
   ably.connection.on(st => {
     diag('Ably: ' + st.current + (st.reason ? ' — ' + errTxt(st.reason) : ''));
