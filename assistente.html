@@ -82,14 +82,15 @@
   </div>
 
   <div class="dg" id="dg">--:--</div>
-  <div class="ver">v2.1</div>
+  <div class="ver">v2.2</div>
 </div>
 
 <div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
 <div class="turn">Vire o celular de pé</div>
 
 <script>
-const NTFY = 'https://ntfy.sh/';
+const ABLY_KEY = '-WkBxA.FUModg:DGe6U1wyeEuOu4_3iuubjnS144Ol3ojOlTb9mmqgmv0';
+const ABLY_JS = 'https://cdn.ably.com/lib/ably.min-2.js';
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const store = {
@@ -121,21 +122,12 @@ document.querySelectorAll('.k[data-n]').forEach(k => k.addEventListener('click',
 $('clr').addEventListener('click', () => { digits = ''; renderVisor(); });
 
 // ===== aviso de cima: Conectado / Sem sinal =====
-let online = false, linked = false, pingWait = null;
+let online = false, linked = false;
 function showPill() {
   const ok = online && linked;
   $('pill').className = 'pill' + (ok ? ' green' : '');
   $('pillTxt').textContent = ok ? 'Conectado' : 'Sem sinal';
   if (!ok) setWatch(null, 0);
-}
-function publish(obj) {
-  return fetch(NTFY + canal, { method: 'POST', body: JSON.stringify(obj) }).then(r => r.ok).catch(() => false);
-}
-function ping() {
-  if (!online) return;
-  publish({ k: 'ping' });
-  clearTimeout(pingWait);
-  pingWait = setTimeout(() => { linked = false; showPill(); }, 7000);   // ninguém respondeu = sem sinal
 }
 
 // ===== caixa do relógio do mágico =====
@@ -151,9 +143,7 @@ function drawWatch() {
   const box = $('dg');
   if (wBase == null) { box.className = 'dg'; box.textContent = '--:--'; return; }
   const el = Math.floor((Date.now() - wAt) / 1000);
-  let t;
-  if (el < wSafe) t = wBase;                      // Tempo de Segurança: segundos parados
-  else t = (wBase + el - wSafe) % 86400;
+  const t = el < wSafe ? wBase : (wBase + el - wSafe) % 86400;
   const orange = el < Math.max(wSafe, wGot ? 3 : 0);
   if (!orange) wGot = false;
   box.className = 'dg ' + (orange ? 'got' : 'on');
@@ -161,29 +151,62 @@ function drawWatch() {
 }
 setInterval(drawWatch, 250);
 
-function gotStatus(o) {
-  clearTimeout(pingWait);
-  linked = !!o.rx;
-  showPill();
-  if (linked) setWatch(o.bt ? o.wt : null, o.y);
+function fromPresence(d) {
+  d = d || {};
+  linked = true; showPill();
+  setWatch(d.bt ? d.wt : null, d.y);
+}
+
+// ===== Ably =====
+let ably = null, ch = null, pending = null;
+function loadAbly() {
+  return new Promise(res => {
+    if (window.Ably) return res(true);
+    const s = document.createElement('script'); s.src = ABLY_JS; s.async = true;
+    s.onload = () => res(!!window.Ably);
+    s.onerror = () => { s.remove(); res(false); };
+    document.head.appendChild(s);
+  });
+}
+async function refreshPresence() {
+  if (!ch) return;
+  try {
+    const members = await ch.presence.get();
+    const m = members.find(x => x.clientId === 'magico');
+    if (m) fromPresence(m.data); else { linked = false; showPill(); }
+  } catch (e) {}
+}
+async function start() {
+  if (!(await loadAbly())) { setTimeout(start, 8000); return; }
+  ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'assist-' + Math.random().toString(36).slice(2, 8), echoMessages: false });
+  ch = ably.channels.get('relogio:' + canal);
+  ably.connection.on(st => {
+    online = st.current === 'connected';
+    showPill();
+    if (online) refreshPresence();
+  });
+  ch.presence.subscribe(m => {
+    if (m.clientId !== 'magico') return;
+    if (m.action === 'leave' || m.action === 'absent') { linked = false; showPill(); }
+    else fromPresence(m.data);
+  });
+  ch.subscribe('ok', msg => gotOk(msg.data || {}));
 }
 
 // ===== envio =====
-let pending = null;
 $('sendBtn').addEventListener('click', async () => {
   if (digits.length < 4) { flash('bad'); return; }
   const h = +digits.slice(0, 2), m = +digits.slice(2);
   if (h > 23 || m > 59) { flash('bad'); return; }
+  if (!ch || !online) { flash('bad'); return; }
   const id = Math.random().toString(36).slice(2, 10);
   if (pending) clearTimeout(pending.timer);
-  pending = { id, h, m };
-  const sent = await publish({ k: 'hora', h, m, id });
+  pending = { id };
+  try { await ch.publish('hora', { h, m, id }); } catch (e) { if (pending && pending.id === id) { pending = null; flash('bad'); } return; }
   if (!pending || pending.id !== id) return;
-  if (!sent) { pending = null; flash('bad'); return; }
-  pending.timer = setTimeout(() => { if (pending && pending.id === id) { pending = null; flash('bad'); } }, 12000);
+  pending.timer = setTimeout(() => { if (pending && pending.id === id) { pending = null; flash('bad'); refreshPresence(); } }, 12000);
 });
 function gotOk(o) {
-  clearTimeout(pingWait);
   linked = true; showPill();
   const mine = pending && o.id === pending.id;
   if (mine) { clearTimeout(pending.timer); pending = null; }
@@ -196,38 +219,18 @@ function gotOk(o) {
   }
 }
 
-// ===== canal =====
-let es = null, esRetry = null;
-function openChannel() {
-  clearTimeout(esRetry);
-  if (es) { try { es.close(); } catch (e) {} es = null; }
-  try { es = new EventSource(NTFY + canal + '/sse'); } catch (e) { esRetry = setTimeout(openChannel, 4000); return; }
-  es.onopen = () => { online = true; ping(); };
-  es.onmessage = ev => {
-    let d, o;
-    try { d = JSON.parse(ev.data); o = JSON.parse(d.message); } catch (e) { return; }
-    if (!d || d.event !== 'message' || !o) return;
-    if (o.k === 'st') gotStatus(o);
-    else if (o.k === 'ok') gotOk(o);
-  };
-  es.onerror = () => {
-    online = false; linked = false; showPill();
-    if (es && es.readyState === 2) { es = null; esRetry = setTimeout(openChannel, 4000); }
-  };
-}
-
 renderVisor();
 showPill();
 if (!canal) { $('nolink').classList.add('show'); }
 else {
-  openChannel();
-  setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 30000);
+  start();
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
-    if (!es || es.readyState === 2) openChannel(); else ping();
+    if (document.visibilityState !== 'visible' || !ably) return;
+    try { ably.connect(); } catch (e) {}
+    refreshPresence();
   });
-  window.addEventListener('online', () => openChannel());
-  $('pill').addEventListener('click', () => ping());
+  window.addEventListener('online', () => { if (ably) try { ably.connect(); } catch (e) {} });
+  $('pill').addEventListener('click', () => refreshPresence());
 }
 </script>
 </body>

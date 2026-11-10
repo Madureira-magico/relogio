@@ -86,16 +86,19 @@
 
   /* disfarce: tela de bloqueio falsa (cores casando com as faixas do Bluefy) */
   .fake { position: fixed; inset: 0; z-index: 60; display: none; overflow: hidden; touch-action: none;
-    background: linear-gradient(180deg, #e7e7e7 0%, #dfe0e4 35%, #d2d4dc 70%, #c6c8d1 100%);
+    background: linear-gradient(180deg, #e7e7e7 0%, #dfe0e4 35%, #d3d4da 70%, #c9cacf 100%);
     font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif; }
   .fake.show { display: block; }
+  /* escurecido embaixo: continua a sombra que o Bluefy desenha na faixa de baixo */
+  .fake::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46%; pointer-events: none;
+    background: radial-gradient(80% 100% at 50% 100%, rgba(98,98,100,.66) 0%, rgba(104,104,107,.52) 25%, rgba(118,118,122,.30) 55%, rgba(140,141,146,.10) 82%, rgba(160,162,170,0) 100%); }
   .fake .bk { position: absolute; border-radius: 50%; background: rgba(255,255,255,.33); filter: blur(3px); }
   .fake .fdate { position: absolute; top: calc(env(safe-area-inset-top) + 34px); width: 100%; text-align: center; color: #4a4d57; font-size: 21px; font-weight: 600; font-family: -apple-system, system-ui, sans-serif; }
   .fake .fclk { position: absolute; top: calc(env(safe-area-inset-top) + 62px); width: 100%; text-align: center; color: #3c3f49; font-size: 27vw; font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
-  .fake .fbtn { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px); width: 52px; height: 52px; border-radius: 50%; background: rgba(60,63,73,.16);
-    display: flex; align-items: center; justify-content: center; color: #2f323b; }
+  .fake .fbtn { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px); width: 52px; height: 52px; border-radius: 50%; background: rgba(40,42,48,.26);
+    display: flex; align-items: center; justify-content: center; color: #fff; z-index: 1; }
   .fake .fbtn svg { width: 24px; height: 24px; }
-  .fake .fname { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 38px); width: 100%; text-align: center; color: #3c3f49; font-size: 17px; line-height: 1.25; font-family: -apple-system, system-ui, sans-serif; }
+  .fake .fname { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 38px); width: 100%; text-align: center; color: #fff; font-size: 17px; line-height: 1.25; z-index: 1; font-family: -apple-system, system-ui, sans-serif; }
   .fake .fname svg { width: 17px; height: 15px; vertical-align: -1px; margin-right: 3px; }
 
   /* telas por cima (configurações, calibragem) */
@@ -201,7 +204,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
     </button>
   </div>
-  <div class="ver">v2.1</div>
+  <div class="ver">v2.2</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -579,7 +582,7 @@ async function sendTime(h, m, make = timePacket) {
   if (ok) {
     flash('ok'); msg('Enviado ' + pad(h) + ':' + pad(m));
     safeUntil = make === timePacket ? Date.now() + safeSecs() * 1000 : 0;   // tempo em que o relógio fica amarelo
-    if (!remoteSending && typeof publishStatus === 'function') publishStatus(true);
+    if (!remoteSending && typeof publishStatus === 'function') statusChanged();
   }
   else { flash('bad'); msg('O relógio não confirmou. Tente de novo'); }
   return ok;
@@ -639,11 +642,13 @@ async function keepAwake() {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && writeChar) keepAwake(); });
 
-// ===== Receber pela internet (canal secreto no ntfy.sh) =====
-// Mensagens no canal (texto JSON):
-//   assistente -> {k:'hora', h, m, id}   |  {k:'ping'}
-//   este app   -> {k:'ok', id, h, m, ok, bt}  |  {k:'st', rx, bt}
-const NTFY = 'https://ntfy.sh/';
+// ===== Receber pela internet (Ably, canal secreto) =====
+// Canal: relogio:<código secreto>
+//   assistente publica 'hora' {h, m, id}
+//   este app publica 'ok' {id, h, m, ok, bt, wt, y}
+//   este app fica "presente" no canal com {bt, wt, y} (a hora do relógio) — o assistente vê isso sozinho
+const ABLY_KEY = '-WkBxA.FUModg:DGe6U1wyeEuOu4_3iuubjnS144Ol3ojOlTb9mmqgmv0';
+const ABLY_JS = 'https://cdn.ably.com/lib/ably.min-2.js';
 let canal = store.get('canal');
 if (!canal) {
   const r = new Uint8Array(18); (self.crypto || window.crypto).getRandomValues(r);
@@ -651,74 +656,95 @@ if (!canal) {
   store.set('canal', canal);
 }
 let rxOn = store.get('rx') === true;
-let es = null, esRetry = null, antTimer = null, antState = 'off';
+let ably = null, ch = null, antTimer = null, antState = 'off', ablyLoading = null;
 
 function setAnt(s) {
   antState = s; $('ant').className = 'ant ' + s;
   if (s !== 'got') clearTimeout(antTimer);
 }
-function publish(obj) {
-  try { return fetch(NTFY + canal, { method: 'POST', body: JSON.stringify(obj), keepalive: true }).catch(() => {}); }
-  catch (e) { return Promise.resolve(); }
+function loadAbly() {
+  if (window.Ably) return Promise.resolve(true);
+  if (ablyLoading) return ablyLoading;
+  ablyLoading = new Promise(res => {
+    const s = document.createElement('script'); s.src = ABLY_JS; s.async = true;
+    s.onload = () => res(!!window.Ably);
+    s.onerror = () => { ablyLoading = null; s.remove(); res(false); };
+    document.head.appendChild(s);
+  });
+  return ablyLoading;
 }
 const btOn = () => !!writeChar;
-let lastSent = null, stTimer = null;
+const live = () => !!(ably && ch && ably.connection.state === 'connected');
+
 // hora do relógio para o assistente: wt = segundos do dia, y = segundos que ainda faltam do Tempo de Segurança
 function watchInfo() {
-  if (!writeChar || !watchTime) return { wt: null, y: 0 };
+  if (!writeChar || !watchTime) return { bt: 0, wt: null, y: 0 };
   const now = Date.now(), base = watchTime.h * 3600 + watchTime.m * 60;
-  if (now < safeUntil) return { wt: base, y: Math.ceil((safeUntil - now) / 1000) };
-  return { wt: (base + watchTime.s + Math.floor((now - watchAt) / 1000)) % 86400, y: 0 };
+  if (now < safeUntil) return { bt: 1, wt: base, y: Math.ceil((safeUntil - now) / 1000) };
+  return { bt: 1, wt: (base + watchTime.s + Math.floor((now - watchAt) / 1000)) % 86400, y: 0 };
+}
+// atualiza a "presença" só quando a hora mostrada para o assistente ficaria errada
+let pub = null, presTimer = null, presLast = 0;
+function expectedWt() {
+  if (!pub || pub.wt == null) return null;
+  const el = Math.floor((Date.now() - pub.at) / 1000);
+  return el < pub.y ? pub.wt : (pub.wt + el - pub.y) % 86400;
 }
 function publishStatus(force) {
-  if (!rxOn) return;
-  const bt = btOn();
-  if (!force && lastSent === bt) return;
-  lastSent = bt;
-  publish(Object.assign({ k: 'st', rx: 1, bt: bt ? 1 : 0 }, watchInfo()));
+  if (!rxOn || !live()) return;
+  const info = watchInfo();
+  if (!force && pub) {
+    const exp = expectedWt();
+    const pubFrozen = pub.y - Math.floor((Date.now() - pub.at) / 1000) > 0, curFrozen = info.y > 0;
+    let same;
+    if (info.wt == null || exp == null) same = info.wt == null && exp == null;
+    else { const d = Math.abs(info.wt - exp); same = Math.min(d, 86400 - d) <= 2 && pubFrozen === curFrozen; }
+    if (same && info.bt === pub.bt) return;
+  }
+  const now = Date.now();
+  if (now - presLast < 1200) { clearTimeout(presTimer); presTimer = setTimeout(() => publishStatus(true), 1200 - (now - presLast)); return; }
+  presLast = now;
+  pub = Object.assign({ at: now }, info);
+  try { ch.presence.update(info).catch(() => {}); } catch (e) {}
 }
-function statusChanged() {           // chamado quando o Bluetooth muda
-  clearTimeout(stTimer);
-  stTimer = setTimeout(() => publishStatus(false), 800);
-}
+function statusChanged() { clearTimeout(presTimer); presTimer = setTimeout(() => publishStatus(true), 600); }
+setInterval(() => publishStatus(false), 1000);    // percebe a coroa girando, conexão do relógio etc.
+setInterval(() => publishStatus(true), 60000);    // e confere de minuto em minuto
 
-function openChannel() {
-  closeChannel();
+async function openChannel() {
   if (!rxOn) { setAnt('off'); return; }
-  if (typeof EventSource === 'undefined') { setAnt('err'); return; }
   setAnt('err');
-  try { es = new EventSource(NTFY + canal + '/sse'); } catch (e) { es = null; esRetry = setTimeout(openChannel, 4000); return; }
-  es.onopen = () => { if (antState !== 'got') setAnt('listen'); publishStatus(true); };
-  es.onmessage = (ev) => {
-    let d, o;
-    try { d = JSON.parse(ev.data); } catch (e) { return; }
-    if (!d || d.event !== 'message' || typeof d.message !== 'string') return;
-    try { o = JSON.parse(d.message); } catch (e) { o = parseLoose(d.message); }
-    if (!o) return;
-    if (o.k === 'hora' && d.time && Date.now() / 1000 - d.time > 20) return;   // hora velha (chegou atrasada): ignora
-    onRemote(o);
-  };
-  es.onerror = () => {
-    setAnt('err');
-    if (es && es.readyState === 2) { es = null; clearTimeout(esRetry); esRetry = setTimeout(openChannel, 4000); }
-  };
+  if (ably) return;
+  const ok = await loadAbly();
+  if (!rxOn || ably) return;
+  if (!ok) { setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); return; }
+  try {
+    ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'magico', echoMessages: false });
+    ch = ably.channels.get('relogio:' + canal);
+    ably.connection.on(st => {
+      if (!rxOn) return;
+      if (st.current === 'connected') {
+        if (antState !== 'got') setAnt('listen');
+        pub = null;
+        try { ch.presence.enter(watchInfo()).catch(() => {}); } catch (e) {}
+        presLast = Date.now(); pub = Object.assign({ at: presLast }, watchInfo());
+      } else if (st.current !== 'connecting' || antState !== 'listen') setAnt('err');
+    });
+    ch.subscribe('hora', msg => {
+      if (msg.timestamp && Date.now() - msg.timestamp > 20000) return;   // hora velha: ignora
+      onRemote(msg.data || {});
+    });
+  } catch (e) { closeChannel(); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); }
 }
 function closeChannel() {
-  clearTimeout(esRetry);
-  if (es) { try { es.close(); } catch (e) {} es = null; }
-}
-// aceita também texto simples: "1450", "14:50", "14h50"
-function parseLoose(t) {
-  const x = String(t).match(/(\d{1,2})\s*[:h.]?\s*(\d{2})/i);
-  if (!x) return null;
-  return { k: 'hora', h: +x[1], m: +x[2], id: null };
+  if (ch) { try { ch.presence.leave().catch(() => {}); } catch (e) {} }
+  if (ably) { try { ably.close(); } catch (e) {} }
+  ably = null; ch = null; pub = null;
 }
 
 let remotePending = null, remoteRunning = false;
 function onRemote(o) {
   if (!rxOn) return;
-  if (o.k === 'ping') { publishStatus(true); return; }
-  if (o.k !== 'hora') return;
   const h = +o.h, m = +o.m;
   if (!(h >= 0 && h <= 23 && m >= 0 && m <= 59)) return;
   remotePending = { h, m, id: o.id || null };   // se chegar outra, vale a última
@@ -733,11 +759,13 @@ async function runRemote() {
     remoteSending = true;
     const ok = await sendTime(r.h, r.m);
     remoteSending = false;
-    publish(Object.assign({ k: 'ok', id: r.id, h: r.h, m: r.m, ok: ok ? 1 : 0, bt: btOn() ? 1 : 0 }, watchInfo()));
+    const info = watchInfo();
+    try { if (ch) ch.publish('ok', Object.assign({ id: r.id, h: r.h, m: r.m, ok: ok ? 1 : 0 }, info)).catch(() => {}); } catch (e) {}
+    publishStatus(true);
     if (ok && rxOn) {
       setAnt('got');
       clearTimeout(antTimer);
-      antTimer = setTimeout(() => { if (antState === 'got') setAnt(es && es.readyState === 1 ? 'listen' : 'err'); }, 2000);
+      antTimer = setTimeout(() => { if (antState === 'got') setAnt(live() ? 'listen' : 'err'); }, 2000);
     }
   }
   remoteRunning = false;
@@ -746,8 +774,8 @@ async function runRemote() {
 function setRx(on, init) {
   rxOn = on; store.set('rx', on);
   $('rxSw').classList.toggle('on', on);
-  if (on) { lastSent = null; openChannel(); }
-  else { if (!init) publish({ k: 'st', rx: 0, bt: btOn() ? 1 : 0 }); closeChannel(); setAnt('off'); }
+  if (on) openChannel();
+  else { closeChannel(); setAnt('off'); }
 }
 $('rxRow').addEventListener('click', () => setRx(!rxOn));
 
@@ -760,13 +788,12 @@ $('linkRow').addEventListener('click', async () => {
   note.classList.add('sel'); note.textContent = link;
 });
 
-window.addEventListener('online', () => { if (rxOn && (!es || es.readyState !== 1)) openChannel(); });
+window.addEventListener('online', () => { if (rxOn) { if (!ably) openChannel(); else try { ably.connect(); } catch (e) {} } });
 window.addEventListener('offline', () => { if (rxOn) setAnt('err'); });
 document.addEventListener('visibilitychange', () => {
-  if (!rxOn) return;
-  if (document.visibilityState === 'visible') { if (!es || es.readyState === 2) openChannel(); else publishStatus(true); }
+  if (!rxOn || document.visibilityState !== 'visible') return;
+  if (!ably) openChannel(); else { try { ably.connect(); } catch (e) {} publishStatus(true); }
 });
-window.addEventListener('pagehide', () => { if (rxOn) publish({ k: 'st', rx: 0, bt: 0 }); });
 
 // ===== Disfarce: tela de bloqueio falsa =====
 const DIAS = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'];
