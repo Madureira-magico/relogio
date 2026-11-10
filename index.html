@@ -78,7 +78,7 @@
   .ant.off { color: #E24B4A; }
   .ant.err { color: #E24B4A; animation: pulse 1.2s ease-in-out infinite; }
   .ver { text-align: right; font-size: 12px; color: #888780; padding-top: 2px; flex-shrink: 0; }
-  .lockrow { display: flex; justify-content: center; padding-top: 8px; flex-shrink: 0; }
+  .lockrow { display: flex; justify-content: center; padding-top: clamp(20px, 3.6vh, 32px); flex-shrink: 0; }
   .lockbtn { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid #5DCAA5; background: transparent; color: #D3D1C7; display: flex; align-items: center; justify-content: center; padding: 0; }
   .lockbtn:active { background: #33363c; }
   .lockbtn svg { width: 20px; height: 20px; }
@@ -107,7 +107,8 @@
     padding: calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 16px); }
   .screen.show { display: flex; }
   .screen .ttl { color: #fff; font-size: 18px; font-weight: 500; text-align: center; }
-  .list { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; max-width: 380px; width: 100%; margin: 0 auto; }
+  .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; justify-content: safe center; gap: clamp(6px, 1.4vh, 12px); max-width: 380px; width: 100%; margin: 8px auto 0; padding: 2px 0; }
+  .list .row { flex-shrink: 0; height: clamp(42px, 6.6vh, 54px); font-size: clamp(14px, 2.1vh, 16px); }
   .row { border: 1.5px solid #5DCAA5; border-radius: 14px; height: 54px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 16px; color: #fff; font-size: 16px; background: #2d3035; width: 100%; }
   .row:active { background: #3a3d43; }
@@ -186,7 +187,7 @@
     </button>
   </div>
 
-  <div id="msg" class="msg">Toque na bolinha do Bluetooth para conectar</div>
+  <div id="msg" class="msg"></div>
 
   <div class="quick">
     <div class="ant off" id="ant" aria-label="Receber pela internet">
@@ -206,7 +207,7 @@
     </button>
   </div>
   <div id="diag" class="hide" style="font-size:11px;color:#EF9F27;text-align:center;min-height:14px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
-  <div class="ver">v2.2.3</div>
+  <div class="ver">v2.2.4</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -351,7 +352,7 @@ function flash(cls) {
   setTimeout(() => v.classList.remove(cls), 900);
 }
 
-let everConnected = false;
+let everConnected = false, warmedUp = false;
 function setBt(state) {
   const cls = { idle: 'ghost', wait: (everConnected ? 'bt-lost' : 'ghost') + ' bt-wait', on: 'bt-on', lost: 'bt-lost' }[state];
   $('btDot').className = 'dot ' + cls;
@@ -403,7 +404,7 @@ async function connect() {
     }
     await openGatt();
   } catch (e) {
-    setBt(everConnected ? 'lost' : 'idle'); msg('Não conectou. Toque na bolinha para tentar de novo');
+    setBt(everConnected ? 'lost' : 'idle'); msg('Não conectou');
   }
 }
 
@@ -421,7 +422,9 @@ async function openGatt() {
   setBt('on'); msg('Conectado');
   keepAwake();
   await readSettings(2000);          // primeiro descobre o Tempo de Segurança guardado
-  if (linkHour) sendLinkHour(); else warmUp();
+  if (linkHour) sendLinkHour();
+  else if (!warmedUp) { warmedUp = true; warmUp(); }      // aquece (12:00) só na primeira conexão
+  else msg('Reconectado — o relógio continua na hora dele');
 }
 
 // Hora vinda do link: .../relogio/?hora=0738
@@ -485,10 +488,10 @@ async function autoConnect() {
       try { await withTimeout(openGatt(), 8000); return; } catch (e) { await sleep(800); }
     }
     if (cancelled()) return;
-    device = null; setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
+    device = null; setBt('idle'); msg('');
   } catch (e) {
     if (cancelled()) return;
-    device = null; setBt('idle'); msg('Toque na bolinha do Bluetooth para conectar');
+    device = null; setBt('idle'); msg('');
   }
 }
 
@@ -535,7 +538,7 @@ async function onDisconnected(ev) {
     catch (e) { setBt('lost'); await sleep(1500); }
   }
   retrying = false;
-  if (!device || !device.gatt.connected) msg('Desconectado. Toque na bolinha vermelha');
+  if (!device || !device.gatt.connected) msg('Desconectado');
 }
 
 let writeQueue = Promise.resolve();
@@ -720,7 +723,7 @@ function publishStatus(force) {
 }
 function statusChanged() { clearTimeout(presTimer); presTimer = setTimeout(() => publishStatus(true), 600); }
 setInterval(() => publishStatus(false), 1000);    // percebe a coroa girando, conexão do relógio etc.
-setInterval(() => publishStatus(true), 60000);    // e confere de minuto em minuto
+setInterval(() => publishStatus(true), 10000);    // batimento: "estou vivo" a cada 10 s (o assistente fica vermelho se parar)
 
 async function openChannel() {
   if (!rxOn) { setAnt('off'); return; }
@@ -746,7 +749,9 @@ async function openChannel() {
     });
     ch.subscribe('hora', msg => {
       if (msg.timestamp && Date.now() - msg.timestamp > 20000) return;   // hora velha: ignora
-      onRemote(msg.data || {});
+      const d = msg.data || {};
+      try { ch.publish('got', { id: d.id || null }).catch(() => {}); } catch (e) {}   // "chegou" na hora, antes do Bluetooth
+      onRemote(d);
     });
   } catch (e) { diag('Ably erro: ' + errTxt(e)); closeChannel(); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); }
 }
@@ -804,10 +809,14 @@ $('linkRow').addEventListener('click', async () => {
 
 window.addEventListener('online', () => { if (rxOn) { if (!ably) openChannel(); else try { ably.connect(); } catch (e) {} } });
 window.addEventListener('offline', () => { if (rxOn) setAnt('err'); });
+// tela apagando / outro app: avisa "saí" e fecha a conexão na hora; ao voltar, reconecta
 document.addEventListener('visibilitychange', () => {
-  if (!rxOn || document.visibilityState !== 'visible') return;
-  if (!ably) openChannel(); else { try { ably.connect(); } catch (e) {} publishStatus(true); }
+  if (!rxOn) return;
+  if (document.visibilityState === 'hidden') { closeChannel(); setAnt('err'); }
+  else if (!ably) openChannel();
 });
+window.addEventListener('pagehide', () => { if (rxOn) closeChannel(); });
+window.addEventListener('pageshow', () => { if (rxOn && !ably) openChannel(); });
 
 // ===== Disfarce: tela de bloqueio falsa =====
 const DIAS = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'];

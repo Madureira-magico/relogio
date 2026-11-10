@@ -82,7 +82,7 @@
   </div>
 
   <div class="dg" id="dg">--:--</div>
-  <div class="ver">v2.2.3</div>
+  <div class="ver">v2.2.4</div>
 </div>
 
 <div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
@@ -132,11 +132,11 @@ function showPill() {
 
 // ===== caixa do relógio do mágico =====
 // wt = segundos do dia que o relógio marca; y = segundos de Tempo de Segurança que faltam (laranja, parado)
-let wBase = null, wAt = 0, wSafe = 0, wGot = false;
+let wBase = null, wAt = 0, wSafe = 0, gotAt = 0;
 function setWatch(wt, y, got) {
   if (wt == null) { wBase = null; drawWatch(); return; }
   wBase = wt; wAt = Date.now(); wSafe = y || 0;
-  if (got) wGot = true;
+  if (got) gotAt = Date.now();
   drawWatch();
 }
 function drawWatch() {
@@ -144,18 +144,25 @@ function drawWatch() {
   if (wBase == null) { box.className = 'dg'; box.textContent = '--:--'; return; }
   const el = Math.floor((Date.now() - wAt) / 1000);
   const t = el < wSafe ? wBase : (wBase + el - wSafe) % 86400;
-  const orange = el < Math.max(wSafe, wGot ? 3 : 0);
-  if (!orange) wGot = false;
+  const orange = el < wSafe || Date.now() - gotAt < 3000;   // laranja: Tempo de Segurança (ou 3 s logo após receber)
   box.className = 'dg ' + (orange ? 'got' : 'on');
   box.innerHTML = pad(Math.floor(t / 3600)) + ':' + pad(Math.floor(t / 60) % 60) + '<small>' + pad(t % 60) + '</small>';
 }
 setInterval(drawWatch, 250);
 
-function fromPresence(d) {
+// lastSeen: último sinal de vida do app do mágico (o "batimento" chega a cada 10 s)
+let lastSeen = 0, lostAt = 0;
+function fromPresence(d, ts) {
+  ts = ts || Date.now();
+  if (ts < lostAt) return;                 // sinal antigo, de antes de perder o contato
+  lastSeen = Math.max(lastSeen, ts);
+  if (Date.now() - lastSeen > 25000) { linked = false; showPill(); return; }
   d = d || {};
   linked = true; showPill();
   setWatch(d.bt ? d.wt : null, d.y);
 }
+function lose() { lostAt = Date.now(); linked = false; showPill(); }
+setInterval(() => { if (linked && Date.now() - lastSeen > 25000) lose(); }, 2000);   // sem batimento há 25 s = sem sinal
 
 // ===== Ably =====
 let ably = null, ch = null, pending = null;
@@ -177,7 +184,7 @@ async function refreshPresence() {
   try {
     const members = await ch.presence.get();
     const m = members.find(x => x.clientId === 'magico');
-    if (m) fromPresence(m.data); else { linked = false; showPill(); }
+    if (m) fromPresence(m.data, m.timestamp); else { linked = false; showPill(); }
     diag(m ? '' : 'Ably ok — app do mágico não está presente');
   } catch (e) { diag('Ably presença: ' + errTxt(e)); }
 }
@@ -198,10 +205,11 @@ async function start() {
   });
   ch.presence.subscribe(m => {
     if (m.clientId !== 'magico') return;
-    if (m.action === 'leave' || m.action === 'absent') { linked = false; showPill(); }
-    else fromPresence(m.data);
+    if (m.action === 'leave' || m.action === 'absent') lose();
+    else fromPresence(m.data, m.timestamp);
   });
-  Promise.resolve(ch.subscribe('ok', msg => gotOk(msg.data || {}))).catch(e => diag('Ably assinar: ' + errTxt(e)));
+  Promise.resolve(ch.subscribe('ok', msg => gotOk(msg.data || {}, msg.timestamp))).catch(e => diag('Ably assinar: ' + errTxt(e)));
+  Promise.resolve(ch.subscribe('got', msg => gotGot(msg.data || {}, msg.timestamp))).catch(() => {});
   } catch (e) { diag('Ably erro: ' + errTxt(e)); }
 }
 
@@ -212,16 +220,23 @@ $('sendBtn').addEventListener('click', async () => {
   if (h > 23 || m > 59) { flash('bad'); return; }
   if (!ch || !online) { flash('bad'); return; }
   const id = Math.random().toString(36).slice(2, 10);
-  if (pending) clearTimeout(pending.timer);
+  if (pending) { clearTimeout(pending.timer); clearTimeout(pending.gotTimer); }
   pending = { id };
   try { await ch.publish('hora', { h, m, id }); } catch (e) { diag('Ably enviar: ' + errTxt(e)); if (pending && pending.id === id) { pending = null; flash('bad'); } return; }
   if (!pending || pending.id !== id) return;
-  pending.timer = setTimeout(() => { if (pending && pending.id === id) { pending = null; flash('bad'); refreshPresence(); } }, 12000);
+  // sem "chegou" em 5 s: o app do mágico não está lá -> Sem sinal
+  pending.gotTimer = setTimeout(() => { if (pending && pending.id === id && !pending.got) { clearTimeout(pending.timer); pending = null; flash('bad'); lose(); } }, 5000);
+  pending.timer = setTimeout(() => { if (pending && pending.id === id) { pending = null; flash('bad'); } }, 15000);
 });
-function gotOk(o) {
+function gotGot(o, ts) {
+  lastSeen = Math.max(lastSeen, ts || Date.now());
+  if (pending && o.id === pending.id) { pending.got = true; clearTimeout(pending.gotTimer); }
+}
+function gotOk(o, ts) {
+  lastSeen = Math.max(lastSeen, ts || Date.now()); lostAt = 0;
   linked = true; showPill();
   const mine = pending && o.id === pending.id;
-  if (mine) { clearTimeout(pending.timer); pending = null; }
+  if (mine) { clearTimeout(pending.timer); clearTimeout(pending.gotTimer); pending = null; }
   if (o.ok) {
     setWatch(o.wt, o.y, true);
     if (mine) { flash('ok'); digits = ''; renderVisor(); }
