@@ -82,7 +82,8 @@
   </div>
 
   <div class="dg" id="dg">--:--</div>
-  <div class="ver">v2.2</div>
+  <div id="diag" style="font-size:12px;color:#EF9F27;text-align:center;min-height:16px;padding-top:6px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
+  <div class="ver">v2.2.1</div>
 </div>
 
 <div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
@@ -174,13 +175,20 @@ async function refreshPresence() {
     const members = await ch.presence.get();
     const m = members.find(x => x.clientId === 'magico');
     if (m) fromPresence(m.data); else { linked = false; showPill(); }
-  } catch (e) {}
+    diag(m ? '' : 'Ably ok — app do mágico não está presente');
+  } catch (e) { diag('Ably presença: ' + errTxt(e)); }
 }
+function diag(t) { const d = document.getElementById('diag'); if (d) d.textContent = t; }
+function errTxt(e) { if (!e) return ''; return (e.code ? e.code + ' ' : '') + (e.message || String(e)).slice(0, 140); }
 async function start() {
-  if (!(await loadAbly())) { setTimeout(start, 8000); return; }
+  diag('Ably: carregando...');
+  if (!(await loadAbly())) { diag('Ably: não carregou o arquivo (cdn.ably.com)'); setTimeout(start, 8000); return; }
+  diag('Ably: conectando...');
+  try {
   ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'assist-' + Math.random().toString(36).slice(2, 8), echoMessages: false });
   ch = ably.channels.get('relogio:' + canal);
   ably.connection.on(st => {
+    diag('Ably: ' + st.current + (st.reason ? ' — ' + errTxt(st.reason) : ''));
     online = st.current === 'connected';
     showPill();
     if (online) refreshPresence();
@@ -190,7 +198,8 @@ async function start() {
     if (m.action === 'leave' || m.action === 'absent') { linked = false; showPill(); }
     else fromPresence(m.data);
   });
-  ch.subscribe('ok', msg => gotOk(msg.data || {}));
+  Promise.resolve(ch.subscribe('ok', msg => gotOk(msg.data || {}))).catch(e => diag('Ably assinar: ' + errTxt(e)));
+  } catch (e) { diag('Ably erro: ' + errTxt(e)); }
 }
 
 // ===== envio =====
@@ -202,7 +211,7 @@ $('sendBtn').addEventListener('click', async () => {
   const id = Math.random().toString(36).slice(2, 10);
   if (pending) clearTimeout(pending.timer);
   pending = { id };
-  try { await ch.publish('hora', { h, m, id }); } catch (e) { if (pending && pending.id === id) { pending = null; flash('bad'); } return; }
+  try { await ch.publish('hora', { h, m, id }); } catch (e) { diag('Ably enviar: ' + errTxt(e)); if (pending && pending.id === id) { pending = null; flash('bad'); } return; }
   if (!pending || pending.id !== id) return;
   pending.timer = setTimeout(() => { if (pending && pending.id === id) { pending = null; flash('bad'); refreshPresence(); } }, 12000);
 });

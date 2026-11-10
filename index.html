@@ -204,7 +204,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
     </button>
   </div>
-  <div class="ver">v2.2</div>
+  <div id="diag" style="font-size:11px;color:#EF9F27;text-align:center;min-height:14px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
+  <div class="ver">v2.2.1</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -658,6 +659,8 @@ if (!canal) {
 let rxOn = store.get('rx') === true;
 let ably = null, ch = null, antTimer = null, antState = 'off', ablyLoading = null;
 
+function diag(t) { const d = document.getElementById('diag'); if (d) d.textContent = t; }
+function errTxt(e) { if (!e) return ''; return (e.code ? e.code + ' ' : '') + (e.message || String(e)).slice(0, 140); }
 function setAnt(s) {
   antState = s; $('ant').className = 'ant ' + s;
   if (s !== 'got') clearTimeout(antTimer);
@@ -715,18 +718,21 @@ async function openChannel() {
   if (!rxOn) { setAnt('off'); return; }
   setAnt('err');
   if (ably) return;
+  diag('Ably: carregando...');
   const ok = await loadAbly();
   if (!rxOn || ably) return;
-  if (!ok) { setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); return; }
+  if (!ok) { diag('Ably: não carregou o arquivo (cdn.ably.com)'); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); return; }
   try {
     ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'magico', echoMessages: false });
     ch = ably.channels.get('relogio:' + canal);
+    diag('Ably: conectando...');
     ably.connection.on(st => {
+      diag('Ably: ' + st.current + (st.reason ? ' — ' + errTxt(st.reason) : ''));
       if (!rxOn) return;
       if (st.current === 'connected') {
         if (antState !== 'got') setAnt('listen');
         pub = null;
-        try { ch.presence.enter(watchInfo()).catch(() => {}); } catch (e) {}
+        try { ch.presence.enter(watchInfo()).then(() => diag('Ably: conectado e presente'), e => diag('Ably presença: ' + errTxt(e))); } catch (e) { diag('Ably presença: ' + errTxt(e)); }
         presLast = Date.now(); pub = Object.assign({ at: presLast }, watchInfo());
       } else if (st.current !== 'connecting' || antState !== 'listen') setAnt('err');
     });
@@ -734,7 +740,7 @@ async function openChannel() {
       if (msg.timestamp && Date.now() - msg.timestamp > 20000) return;   // hora velha: ignora
       onRemote(msg.data || {});
     });
-  } catch (e) { closeChannel(); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); }
+  } catch (e) { diag('Ably erro: ' + errTxt(e)); closeChannel(); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); }
 }
 function closeChannel() {
   if (ch) { try { ch.presence.leave().catch(() => {}); } catch (e) {} }
@@ -775,7 +781,7 @@ function setRx(on, init) {
   rxOn = on; store.set('rx', on);
   $('rxSw').classList.toggle('on', on);
   if (on) openChannel();
-  else { closeChannel(); setAnt('off'); }
+  else { closeChannel(); setAnt('off'); diag(''); }
 }
 $('rxRow').addEventListener('click', () => setRx(!rxOn));
 
