@@ -82,8 +82,7 @@
   </div>
 
   <div class="dg" id="dg">--:--</div>
-  <div id="diag" style="font-size:12px;color:#EF9F27;text-align:center;min-height:16px;padding-top:6px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
-  <div class="ver">v2.2.1</div>
+  <div class="ver">v2.2.3</div>
 </div>
 
 <div class="nolink" id="nolink">Abra este app pelo link que o mágico mandou.</div>
@@ -91,7 +90,7 @@
 
 <script>
 const ABLY_KEY = '-WkBxA.FUModg:DGe6U1wyeEuOu4_3iuubjnS144Ol3ojOlTb9mmqgmv0';
-const ABLY_JS = 'https://cdn.ably.com/lib/ably.min-2.js';
+const ABLY_JS = ['ably.min.js', 'https://cdn.jsdelivr.net/npm/@ably/pubsub-device@3/dist/cdn/ably.min.js'];   // SDK novo do Ably (para aparelhos)
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const store = {
@@ -160,14 +159,18 @@ function fromPresence(d) {
 
 // ===== Ably =====
 let ably = null, ch = null, pending = null;
-function loadAbly() {
+function loadScript(src) {
   return new Promise(res => {
-    if (window.Ably) return res(true);
-    const s = document.createElement('script'); s.src = ABLY_JS; s.async = true;
-    s.onload = () => res(!!window.Ably);
+    const s = document.createElement('script'); s.src = src; s.async = true;
+    s.onload = () => res(!!window.AblyPubSub);
     s.onerror = () => { s.remove(); res(false); };
     document.head.appendChild(s);
   });
+}
+async function loadAbly() {
+  if (window.AblyPubSub) return true;
+  for (const src of ABLY_JS) if (await loadScript(src)) return true;
+  return false;
 }
 async function refreshPresence() {
   if (!ch) return;
@@ -182,10 +185,10 @@ function diag(t) { const d = document.getElementById('diag'); if (d) d.textConte
 function errTxt(e) { if (!e) return ''; return (e.code ? e.code + ' ' : '') + (e.message || String(e)).slice(0, 140); }
 async function start() {
   diag('Ably: carregando...');
-  if (!(await loadAbly())) { diag('Ably: não carregou o arquivo (cdn.ably.com)'); setTimeout(start, 8000); return; }
+  if (!(await loadAbly())) { diag('Ably: não carregou o arquivo ably.min.js'); setTimeout(start, 8000); return; }
   diag('Ably: conectando...');
   try {
-  ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'assist-' + Math.random().toString(36).slice(2, 8), echoMessages: false });
+  ably = AblyPubSub.createClient({ key: ABLY_KEY, clientId: 'assist-' + Math.random().toString(36).slice(2, 8), echoMessages: false });
   ch = ably.channels.get('relogio:' + canal);
   ably.connection.on(st => {
     diag('Ably: ' + st.current + (st.reason ? ' — ' + errTxt(st.reason) : ''));

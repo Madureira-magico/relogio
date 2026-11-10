@@ -83,6 +83,7 @@
   .lockbtn:active { background: #33363c; }
   .lockbtn svg { width: 20px; height: 20px; }
   .lockrow.hide { display: none; }
+  #diag.hide { display: none; }
 
   /* disfarce: tela de bloqueio falsa (cores casando com as faixas do Bluefy) */
   .fake { position: fixed; inset: 0; z-index: 60; display: none; overflow: hidden; touch-action: none;
@@ -204,8 +205,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
     </button>
   </div>
-  <div id="diag" style="font-size:11px;color:#EF9F27;text-align:center;min-height:14px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
-  <div class="ver">v2.2.1</div>
+  <div id="diag" class="hide" style="font-size:11px;color:#EF9F27;text-align:center;min-height:14px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
+  <div class="ver">v2.2.3</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -221,6 +222,7 @@
     <button class="row" id="rxRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>Receber pela internet</span><i class="sw" id="rxSw"></i></button>
     <button class="row" id="linkRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Link do assistente</span><b class="v">copiar</b></button>
     <button class="row" id="dzRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Disfarce</span><i class="sw" id="dzSw"></i></button>
+    <button class="row" id="dgRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>Mostrar diagnóstico</span><i class="sw" id="dgSw"></i></button>
   </div>
   <div class="note" id="cfgNote"></div>
   <button class="wide" id="cfgBack">‹ Voltar</button>
@@ -649,7 +651,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 //   este app publica 'ok' {id, h, m, ok, bt, wt, y}
 //   este app fica "presente" no canal com {bt, wt, y} (a hora do relógio) — o assistente vê isso sozinho
 const ABLY_KEY = '-WkBxA.FUModg:DGe6U1wyeEuOu4_3iuubjnS144Ol3ojOlTb9mmqgmv0';
-const ABLY_JS = 'https://cdn.ably.com/lib/ably.min-2.js';
+const ABLY_JS = ['ably.min.js', 'https://cdn.jsdelivr.net/npm/@ably/pubsub-device@3/dist/cdn/ably.min.js'];   // SDK novo do Ably (para aparelhos)
 let canal = store.get('canal');
 if (!canal) {
   const r = new Uint8Array(18); (self.crypto || window.crypto).getRandomValues(r);
@@ -665,15 +667,21 @@ function setAnt(s) {
   antState = s; $('ant').className = 'ant ' + s;
   if (s !== 'got') clearTimeout(antTimer);
 }
-function loadAbly() {
-  if (window.Ably) return Promise.resolve(true);
-  if (ablyLoading) return ablyLoading;
-  ablyLoading = new Promise(res => {
-    const s = document.createElement('script'); s.src = ABLY_JS; s.async = true;
-    s.onload = () => res(!!window.Ably);
-    s.onerror = () => { ablyLoading = null; s.remove(); res(false); };
+function loadScript(src) {
+  return new Promise(res => {
+    const s = document.createElement('script'); s.src = src; s.async = true;
+    s.onload = () => res(!!window.AblyPubSub);
+    s.onerror = () => { s.remove(); res(false); };
     document.head.appendChild(s);
   });
+}
+function loadAbly() {
+  if (window.AblyPubSub) return Promise.resolve(true);
+  if (ablyLoading) return ablyLoading;
+  ablyLoading = (async () => {
+    for (const src of ABLY_JS) if (await loadScript(src)) return true;
+    ablyLoading = null; return false;
+  })();
   return ablyLoading;
 }
 const btOn = () => !!writeChar;
@@ -721,9 +729,9 @@ async function openChannel() {
   diag('Ably: carregando...');
   const ok = await loadAbly();
   if (!rxOn || ably) return;
-  if (!ok) { diag('Ably: não carregou o arquivo (cdn.ably.com)'); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); return; }
+  if (!ok) { diag('Ably: não carregou o arquivo ably.min.js'); setTimeout(() => { if (rxOn && !ably) openChannel(); }, 8000); return; }
   try {
-    ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'magico', echoMessages: false });
+    ably = AblyPubSub.createClient({ key: ABLY_KEY, clientId: 'magico', echoMessages: false });
     ch = ably.channels.get('relogio:' + canal);
     diag('Ably: conectando...');
     ably.connection.on(st => {
@@ -820,6 +828,10 @@ function setDz(on) {
 }
 $('lockBtn').addEventListener('click', showFake);
 $('dzRow').addEventListener('click', () => setDz(!dzOn));
+// linha de diagnóstico (motivo da conexão com o Ably) — desligada por padrão
+let dgOn = store.get('diag') === true;
+function setDg(on) { dgOn = on; store.set('diag', on); $('dgSw').classList.toggle('on', on); $('diag').classList.toggle('hide', !on); }
+$('dgRow').addEventListener('click', () => setDg(!dgOn));
 // sair: dois toques rápidos em qualquer lugar
 $('fake').addEventListener('touchend', e => {
   e.preventDefault();
@@ -943,6 +955,7 @@ setBt('idle');
 keepAwake();
 setRx(rxOn, true);
 setDz(dzOn);
+setDg(dgOn);
 autoConnect();
 </script>
 </body>
