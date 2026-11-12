@@ -101,7 +101,7 @@
   .fake .bk { position: absolute; border-radius: 50%; background: rgba(255,255,255,.33); filter: blur(3px); }
   .fake .fdate { position: absolute; top: calc(env(safe-area-inset-top) + 34px); width: 100%; text-align: center; color: #4a4d57; font-size: 21px; font-weight: 600; font-family: -apple-system, system-ui, sans-serif; }
   .fake .fclk { position: absolute; top: calc(env(safe-area-inset-top) + 62px); width: 100%; text-align: center; color: #3c3f49; font-size: 27vw; font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
-  .fake .fbtn { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px); width: 52px; height: 52px; border-radius: 50%; background: rgba(40,42,48,.26);
+  .fake .fbtn { transition: background .15s, color .15s; position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px); width: 52px; height: 52px; border-radius: 50%; background: rgba(40,42,48,.26);
     display: flex; align-items: center; justify-content: center; color: #fff; z-index: 1; }
   .fake .fbtn svg { width: 24px; height: 24px; }
   .fake .fname { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 38px); width: 100%; text-align: center; color: #fff; font-size: 17px; line-height: 1.25; z-index: 1; font-family: -apple-system, system-ui, sans-serif; }
@@ -244,7 +244,7 @@
     </button>
   </div>
   <div id="diag" class="hide" style="font-size:11px;color:#EF9F27;text-align:center;min-height:14px;word-break:break-word;-webkit-user-select:text;user-select:text"></div>
-  <div class="ver">v2.3</div>
+  <div class="ver">v2.3.1</div>
 </div>
 
 <!-- Tela de configurações -->
@@ -260,6 +260,7 @@
     <button class="row" id="rxRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7"/></svg>Receber pela internet</span><i class="sw" id="rxSw"></i></button>
     <button class="row" id="linkRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Link do assistente</span><b class="v">copiar</b></button>
     <button class="row" id="dzRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Disfarce</span><i class="sw" id="dzSw"></i></button>
+    <button class="row" id="camRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l1.5 2H20a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 18V7.5A1.5 1.5 0 0 1 4 6h3.5z"/><circle cx="12" cy="12.5" r="3.5"/></svg>Aviso na câmera</span><b class="v" id="vCam">desenho</b></button>
     <button class="row" id="dgRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>Mostrar diagnóstico</span><i class="sw" id="dgSw"></i></button>
     <div class="sec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16v4"/><path d="M13.5 6.5l4 4"/></svg>Post-It</div>
     <button class="row" id="padRow"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16v4"/><path d="M13.5 6.5l4 4"/></svg>Usar Post-It</span><i class="sw" id="padSw"></i></button>
@@ -304,15 +305,16 @@
   <div class="fclk" id="fClk"></div>
   <div class="fbtn" style="left:30px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 2h8a1 1 0 0 1 1 1v2.2c0 .5-.2 1-.5 1.4L15 8.8V21a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8.8L7.5 6.6C7.2 6.2 7 5.7 7 5.2V3a1 1 0 0 1 1-1zm4 9.2a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg></div>
   <div class="fname"><svg viewBox="0 0 24 21" fill="currentColor"><path d="M9 1h6a2 2 0 0 1 2 2v2h4a3 3 0 0 1 3 3v3H0V8a3 3 0 0 1 3-3h4V3a2 2 0 0 1 2-2zm0 2v2h6V3H9zM0 13h10v1.5a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V13h10v5a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3v-5z"/></svg>Riccardo<br>Madureira</div>
-  <div class="fbtn" style="right:30px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1.6 2.2H20a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7.2a2 2 0 0 1 2-2h3.4L9 3zm3 4.6a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm6.4-1.4a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/><circle id="lensDot" cx="12" cy="12.6" r="2.2" fill="#E24B4A"/></svg></div>
+  <div class="fbtn" id="camBtn" style="right:30px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1.6 2.2H20a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7.2a2 2 0 0 1 2-2h3.4L9 3zm3 4.6a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm6.4-1.4a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg></div>
 </div>
 
 <!-- Modo ensaio -->
 <div class="rh" id="rh">
-  <div class="rclose">fechar ✕</div>
+  <div class="rclose" id="rhClose">fechar ✕</div>
   <canvas id="rhCanvas" width="600" height="300"></canvas>
   <div class="rt"><div><div class="rread" id="rhRead">escreva no Post-It…</div></div><div class="rtime" id="rhTime">--:--</div></div>
   <div class="rst" id="rhSt"></div>
+  <button class="wide" id="rhCopy" style="height:38px;margin-top:8px">Copiar registro</button>
 </div>
 
 <div class="turn">
@@ -989,16 +991,47 @@ const PadReader = (() => {
   const dirs = p => { const o = []; for (let i = 1; i < p.length; i++) o.push(Math.atan2(p[i].y - p[i - 1].y, p[i].x - p[i - 1].x)); return o; };
   const dirDist = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) { let d = Math.abs(a[i] - b[i]); d = Math.min(d, 2 * Math.PI - d); s += d; } return s / a.length; };
   let templates = [];
-  function setTemplates(list) {   // [{c, pts:[[x,y]...], ar}]
-    templates = list.map(t => { const pts = t.pts.map(p => ({ x: p[0], y: p[1] })); return { c: t.c, ar: t.ar, pts, dir: dirs(pts) }; });
+  // cada amostra ganha versões giradas e entortadas, para reconhecer a escrita inclinada
+  const VARIANTS = [[0, 0], [8, 0], [-8, 0], [16, 0], [-16, 0], [0, 0.2], [0, -0.2]];
+  function variant(pts, deg, sh) {
+    const r = deg * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r);
+    const q = pts.map(p => { const x = p.x + sh * p.y, y = p.y; return { x: x * c - y * sn, y: x * sn + y * c }; });
+    const b = bbox(q), size = Math.max(b.w, b.h) || 1;
+    const sc = q.map(p => ({ x: (p.x - b.x0) / size, y: (p.y - b.y0) / size }));
+    const cx = sc.reduce((a, p) => a + p.x, 0) / sc.length, cy = sc.reduce((a, p) => a + p.y, 0) / sc.length;
+    return { pts: sc.map(p => ({ x: p.x - cx, y: p.y - cy })), ar: b.h ? b.w / b.h : 9 };
+  }
+  function setTemplates(list, augment = true) {   // [{c, pts:[[x,y]...], ar}]
+    templates = [];
+    list.forEach(t => {
+      const pts = t.pts.map(p => ({ x: p[0], y: p[1] }));
+      (augment ? VARIANTS : [[0, 0]]).forEach(([d, sh]) => {
+        const v = (d || sh) ? variant(pts, d, sh) : { pts, ar: t.ar };
+        templates.push({ c: t.c, ar: v.ar, pts: v.pts, dir: dirs(v.pts) });
+      });
+    });
   }
   function classify(strokes, skip) {
     const g = normalize(strokes), gd = dirs(g.pts);
     const m = { P: {}, O: {}, D: {} };
+    // 1º: comparação rápida com todas as amostras; 2º: a comparação mais pesada só nas mais parecidas
+    const quick = [];
     templates.forEach((t, ti) => {
       if (ti === skip) return;
-      const v = { P: greedy(g.pts, t.pts), O: ordDist(g.pts, t.pts), D: dirDist(gd, t.dir) };
-      for (const k in v) if (!(t.c in m[k]) || v[k] < m[k][t.c]) m[k][t.c] = v[k];
+      const o = ordDist(g.pts, t.pts), d = dirDist(gd, t.dir);
+      quick.push({ t, o, d });
+      if (!(t.c in m.O) || o < m.O[t.c]) m.O[t.c] = o;
+      if (!(t.c in m.D) || d < m.D[t.c]) m.D[t.c] = d;
+    });
+    const med = obj => { const v = Object.values(obj).sort((a, b) => a - b); return v[Math.floor(v.length / 2)] || 1; };
+    const mo = med(m.O), md = med(m.D);
+    quick.sort((a, b) => (a.o / mo + a.d / md) - (b.o / mo + b.d / md));
+    const seen = {};
+    quick.forEach((q, i) => {
+      if (i >= 90 && seen[q.t.c] >= 4) return;            // as 90 melhores + pelo menos 4 de cada número
+      seen[q.t.c] = (seen[q.t.c] || 0) + 1;
+      const pv = greedy(g.pts, q.t.pts);
+      if (!(q.t.c in m.P) || pv < m.P[q.t.c]) m.P[q.t.c] = pv;
     });
     const tot = {};
     for (const k in m) {
@@ -1020,13 +1053,24 @@ const PadReader = (() => {
     const tilt = Math.abs(Math.atan2(Math.abs(z.x - a.x), Math.abs(z.y - a.y))) * 180 / Math.PI;   // 0 = vertical, 90 = horizontal
     return { b, L, chord, straight: L ? chord / L : 0, ang, tilt };
   }
-  function isLongLine(s, refH) {
+  // traço longo: comprido, quase reto, e "deitado" em relação à linha dos números
+  // minTilt: 60 quando a inclinação da linha é conhecida (já endireitado), 45 quando não é
+  function isLongLine(s, refH, minTilt = 45, spanW = 0) {
     const i = strokeInfo(s);
-    return i.straight > 0.85 && i.tilt > 60 && i.b.w > Math.max(PAD_W * 0.4, refH * 1.6);
+    return i.straight > 0.72 && i.tilt > minTilt && i.chord > Math.max(PAD_W * 0.3, refH * 1.3, spanW * 0.5);
+  }
+  // inclinação do traço (em graus, em relação à horizontal), para endireitar a escrita
+  function lineAngle(s) { const a = s[0], z = s[s.length - 1]; let ang = Math.atan2(z.y - a.y, z.x - a.x); if (Math.abs(ang) > Math.PI / 2) ang = ang > 0 ? ang - Math.PI : ang + Math.PI; return ang; }
+  function rotate(strokes, ang) {
+    const all = strokes.flat(); if (!all.length || !ang) return strokes;
+    const cx = all.reduce((a, p) => a + p.x, 0) / all.length, cy = all.reduce((a, p) => a + p.y, 0) / all.length;
+    const c = Math.cos(-ang), sn = Math.sin(-ang);
+    return strokes.map(st => st.map(p => ({ x: cx + (p.x - cx) * c - (p.y - cy) * sn, y: cy + (p.x - cx) * sn + (p.y - cy) * c })));
   }
   function isSlashPair(s1, s2, refH) {
     const a = strokeInfo(s1), b = strokeInfo(s2);
-    const ok = i => i.straight > 0.78 && i.tilt > 12 && i.tilt < 60 && i.chord > refH * 0.55;
+    // traços em "/" (sobem para a direita), inclinados de 12° a 65° em relação à vertical
+    const ok = i => i.straight > 0.78 && i.tilt > 12 && i.tilt < 65 && i.chord > refH * 0.55 && Math.sin(i.ang) * Math.cos(i.ang) < 0;
     if (!ok(a) || !ok(b)) return false;
     let da = Math.abs(((a.ang - b.ang) * 180 / Math.PI) % 180); da = Math.min(da, 180 - da);   // paralelos (tanto faz o sentido)
     if (da > 20) return false;
@@ -1070,7 +1114,21 @@ const PadReader = (() => {
   }
 
   // ---------- organiza em linhas e lê ----------
-  function readStrokes(strokes) {
+  // inclinação da linha de números, pela posição deles (0 se não der para medir)
+  function baseAngle(strokes) {
+    const g = groupChars(strokes).chars.filter(c => !c.tiny);
+    if (g.length < 3) return null;
+    const n = g.length, mx = g.reduce((a, c) => a + c.cx, 0) / n, my = g.reduce((a, c) => a + c.cy, 0) / n;
+    let sxy = 0, sxx = 0; g.forEach(c => { sxy += (c.cx - mx) * (c.cy - my); sxx += (c.cx - mx) ** 2; });
+    const ang = sxx ? Math.atan(sxy / sxx) : 0;
+    const spanX = Math.max(...g.map(c => c.b.x1)) - Math.min(...g.map(c => c.b.x0)), spanY = Math.max(...g.map(c => c.b.y1)) - Math.min(...g.map(c => c.b.y0));
+    if (!(spanX > spanY * 0.8) || Math.abs(ang) >= 0.75) return null;
+    return Math.abs(ang) > 0.06 ? ang : 0;
+  }
+  function readStrokes(strokes0, angHint) {
+    let strokes = strokes0;
+    const ang = (angHint != null) ? angHint : (baseAngle(strokes) || 0);
+    if (Math.abs(ang) > 0.05) strokes = rotate(strokes, ang);
     const { chars, refH } = groupChars(strokes);
     const real = chars.filter(c => !c.tiny);
     // linhas: pela altura (uma linha nova quando não há sobreposição vertical)
@@ -1112,6 +1170,14 @@ const PadReader = (() => {
       subs.sort((a, b) => a[3] - b[3]);
       for (const s of subs) { if (s[3] > 0.6) break; const tx = text(s); const tm = toTime(tx); if (tm) { best = tx; time = tm; break; } }
     }
+    if (!time && tokLines.length === 1) {
+      // o "h" foi lido como número: testa ele como separador (14627 -> 14:27, 7635 -> 7:35)
+      const toks = tokLines[0], n = toks.length;
+      for (const pos of (n === 5 ? [2] : n === 4 ? [1] : [])) {
+        const tx = [toks.map((t, i) => i === pos ? ':' : t.alts[0][0]).join('')];
+        const tm = toTime(tx); if (tm) { best = tx; time = tm; break; }
+      }
+    }
     return { lines: best, time, chars, refH };
   }
 
@@ -1135,14 +1201,14 @@ const PadReader = (() => {
     return { h, m };
   }
 
-  return { parsePacket, normalize, classify, setTemplates, makeTemplate, readStrokes, toTime, isLongLine, isSlashPair, bbox, strokeInfo };
+  return { parsePacket, normalize, classify, setTemplates, makeTemplate, readStrokes, toTime, isLongLine, isSlashPair, bbox, strokeInfo, lineAngle, rotate, baseAngle };
 })();
 
 // ===== Montador de traços: recebe os pacotes e avisa quando a hora foi "assinada" =====
 function PadInk(onResult, opts = {}) {
   const R = PadReader;
   let strokes = [], cur = null, lastAt = 0, lastRaw = '';
-  const STROKE_GAP = opts.strokeGap || 350, IDLE = opts.idle || 45000;
+  const STROKE_GAP = opts.strokeGap || 350, IDLE = opts.idle || 8000;
   function refH(list) {
     const hs = list.map(s => R.bbox(s).h).filter(h => h > 800).sort((a, b) => a - b);
     return hs.length ? hs[Math.floor(hs.length * 0.75)] : 6000;
@@ -1154,12 +1220,21 @@ function PadInk(onResult, opts = {}) {
     if (opts.onStroke) opts.onStroke(strokes, null);
     const n = strokes.length;
     const prevH = refH(strokes.slice(0, -1));
-    if (n >= 2 && s.length >= 3 && R.isLongLine(s, prevH)) return fire(strokes.slice(0, -1));
-    if (n >= 3 && strokes[n - 2].length >= 3 && s.length >= 3 && R.isSlashPair(strokes[n - 2], s, refH(strokes.slice(0, -2)))) return fire(strokes.slice(0, -2));
+    if (n >= 2 && s.length >= 3) {
+      const prev = strokes.slice(0, -1), base = R.baseAngle(prev);
+      const sr = base == null ? s : R.rotate([s], base)[0];
+      const pb = R.bbox(base == null ? prev.flat() : R.rotate(prev, base).flat());
+      if (R.isLongLine(sr, prevH, base == null ? 45 : 50, pb.w)) return fire(prev, base != null ? base : R.lineAngle(s));
+    }
+    if (n >= 3 && strokes[n - 2].length >= 3 && s.length >= 3) {
+      const before = strokes.slice(0, -2), base = R.baseAngle(before) || 0;
+      const pair = R.rotate([strokes[n - 2], s], base);          // mede os dois traços em relação à linha dos números
+      if (R.isSlashPair(pair[0], pair[1], refH(before))) return fire(before, base);
+    }
   }
-  function fire(list) {
+  function fire(list, ang) {
     strokes = [];
-    const r = R.readStrokes(list);
+    const r = R.readStrokes(list, ang);
     onResult(r, list);
   }
   return {
@@ -1169,7 +1244,7 @@ function PadInk(onResult, opts = {}) {
       const pk = R.parsePacket(bytes);
       if (!pk) return null;
       if (cur && now - lastAt > STROKE_GAP) finish();
-      if (!cur && strokes.length && now - lastAt > IDLE) strokes = []; // muito tempo parado: começa do zero
+      if (!cur && strokes.length && now - lastAt > IDLE) { strokes = []; if (opts.onIdleClear) opts.onIdleClear(); } // parado sem traço: começa do zero
       for (const p of pk.points) {
         if (p.down) { if (!cur) cur = []; cur.push({ x: p.x, y: p.y }); lastAt = now; }
         else if (cur) finish();
@@ -1177,7 +1252,10 @@ function PadInk(onResult, opts = {}) {
       if (pk.points.length) lastAt = now;
       return pk;
     },
-    tick(now = Date.now()) { if (cur && now - lastAt > STROKE_GAP) finish(); },
+    tick(now = Date.now()) {
+      if (cur && now - lastAt > STROKE_GAP) finish();
+      if (!cur && strokes.length && now - lastAt > IDLE) { strokes = []; if (opts.onIdleClear) opts.onIdleClear(); }
+    },
     clear() { strokes = []; cur = null; },
     get strokes() { return cur ? strokes.concat([cur]) : strokes; }
   };
@@ -1285,9 +1363,27 @@ async function autoConnectPad() {
   } catch (e) { if (!cancelled()) { padDevice = null; setPad(padKnown() ? 'lost' : 'idle'); } }
 }
 
+// ----- registro (para copiar e mandar no chat, no mesmo formato do nRF Connect) -----
+const padLog = [];
+function logTime() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + String(d.getMilliseconds()).padStart(3, '0'); }
+function logLine(t) { padLog.push('[' + logTime() + '] ' + t); if (padLog.length > 8000) padLog.splice(0, padLog.length - 8000); }
+function logPacket(b) {
+  const h = [...b].map(x => x.toString(16).padStart(2, '0').toUpperCase()).join('').replace(/(.{4})/g, '$1 ').trim();
+  logLine('Normal: Updated Value of Characteristic 58570003-B5A3-F393-E0A9-E50E24DCCA9E to ' + h + '.');
+}
+async function copyLog() {
+  const txt = padLog.join('\n') || '(registro vazio)';
+  let ok = false;
+  try { await navigator.clipboard.writeText(txt); ok = true; } catch (e) {}
+  if (!ok) { try { const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) {} }
+  if (!ok) { try { if (navigator.share) { await navigator.share({ text: txt }); ok = true; } } catch (e) {} }
+  $('rhSt').textContent = ok ? 'Registro copiado (' + padLog.length + ' linhas) — cole no chat' : 'Não consegui copiar';
+}
+
 let lastOpenTry = 0;
 function onPadNotify(ev) {
   const b = new Uint8Array(ev.target.value.buffer.slice(ev.target.value.byteOffset, ev.target.value.byteOffset + ev.target.value.byteLength));
+  logPacket(b);
   if (b.length < 5 || b[0] !== 0x58 || b[1] !== 0x57) return;
   if (b[2] !== padType && b[2] !== DEV) {                 // aprendeu o tipo do Post-It: abre de novo com o tipo certo
     padType = b[2]; store.set('padType', padType);
@@ -1301,12 +1397,13 @@ function onPadNotify(ev) {
 
 // ----- leitura -----
 PadReader.setTemplates(PAD_TEMPLATES);
-const ink = PadInk(onPadResult);
+const ink = PadInk(onPadResult, { onIdleClear: () => { logLine('Limpeza: 8 s sem traço'); if (padRh) { $('rhRead').textContent = 'Limpei (8 s sem traço de enviar)'; $('rhTime').textContent = '--:--'; drawStrokes([]); rhShown = true; } } });
 setInterval(() => ink.tick(), 150);
 let padSending = false, padPending = null;
 
 function onPadResult(r, strokes) {
   const t = r.time;
+  logLine('Leitura: ' + (r.lines.join(' / ') || '(nada)') + ' => ' + (t ? t.h + ':' + pad(t.m) : '??'));
   if (padRh) showRhResult(r, strokes);
   if (!t) { lensFlash('fail'); return; }
   if (!writeChar) { lensFlash('fail'); if (padRh) $('rhSt').textContent = 'Relógio não conectado'; return; }
@@ -1327,20 +1424,28 @@ async function runPad() {
 
 // ----- ponto na lente da câmera (disfarce) -----
 let lensTemp = null, lensTimer = null, lensBlink = null;
+let camStyle = store.get('camStyle') === 'circulo' ? 'circulo' : 'desenho';
+function paintCam(color, op) {
+  const el = document.getElementById('camBtn'); if (!el) return;
+  if (camStyle === 'circulo') { el.style.background = color; el.style.color = '#fff'; }
+  else { el.style.background = ''; el.style.color = color; }
+  el.style.opacity = op;
+}
 function lensBase() {
   const watchOk = !!writeChar;
   const padOk = !padOn || !padKnown() || !!padWrite;
   return watchOk && padOk ? '#1D9E75' : '#E24B4A';
 }
 function updateLens() {
-  const el = document.getElementById('lensDot'); if (!el) return;
-  clearInterval(lensBlink); el.style.opacity = 1;
-  if (lensTemp === 'got') el.setAttribute('fill', '#EF9F27');
+  clearInterval(lensBlink);
+  if (lensTemp === 'got') paintCam('#EF9F27', 1);
   else if (lensTemp === 'fail') {
-    el.setAttribute('fill', '#E24B4A');
-    let v = 1; lensBlink = setInterval(() => { v = 1 - v; el.style.opacity = v; }, 350);
-  } else el.setAttribute('fill', lensBase());
+    let v = 1; paintCam('#E24B4A', 1);
+    lensBlink = setInterval(() => { v = v === 1 ? 0.3 : 1; paintCam('#E24B4A', v); }, 350);
+  } else paintCam(lensBase(), 1);
 }
+function setCamStyle(st) { camStyle = st; store.set('camStyle', st); $('vCam').textContent = st === 'circulo' ? 'círculo' : 'desenho'; updateLens(); }
+$('camRow').addEventListener('click', () => setCamStyle(camStyle === 'circulo' ? 'desenho' : 'circulo'));
 function lensFlash(kind) {
   lensTemp = kind; clearTimeout(lensTimer); updateLens();
   lensTimer = setTimeout(() => { lensTemp = null; updateLens(); }, kind === 'got' ? 2000 : 3000);
@@ -1380,7 +1485,8 @@ function showRhResult(r, strokes) {
   $('rhTime').textContent = r.time ? r.time.h + ':' + pad(r.time.m) : '??';
   $('rhSt').textContent = r.time ? '' : 'Não entendi — escreva de novo';
 }
-$('rh').addEventListener('click', () => $('rh').classList.remove('show'));
+$('rhClose').addEventListener('click', () => $('rh').classList.remove('show'));
+$('rhCopy').addEventListener('click', copyLog);
 
 // ----- configurações do Post-It -----
 function setPadOn(on) {
@@ -1514,6 +1620,7 @@ setRx(rxOn, true);
 setDz(dzOn);
 setDg(dgOn);
 setRh(padRh);
+setCamStyle(camStyle);
 autoConnect();
 setPadOn(padOn);
 // cópia guardada no celular para abrir sem internet

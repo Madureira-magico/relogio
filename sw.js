@@ -1,6 +1,6 @@
 // Guarda uma cópia do app no celular para abrir sem internet.
 // Com internet: sempre busca a versão nova (e atualiza a cópia). Sem internet: usa a cópia.
-const CACHE = 'relogio-v2.3';
+const CACHE = 'relogio-v2.3.1';
 const FILES = ['./', 'index.html', 'ably.min.js', 'assistente.html', 'icone-assistente.png'];
 
 self.addEventListener('install', e => {
